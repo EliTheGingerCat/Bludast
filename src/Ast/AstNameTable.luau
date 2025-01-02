@@ -1,0 +1,162 @@
+local AstName = require("./AstName")
+local Lexeme = require("./Lexeme")
+local Pair = require("./Pair")
+
+type AstName = AstName.AstName
+type Pair<T1, T2> = Pair.Pair<T1, T2>
+
+--[=[
+	@class Entry
+	Struct from `/Ast/src/Lexer.cpp > AstNameTable`.
+]=]
+local Entry = {}
+
+export type Entry = {
+	--[=[
+		@within Parser::EntryHash
+		@prop value AstName
+		@readonly
+		@since v0.1.0
+	]=]
+	value: AstName,
+
+	--[=[
+		@within Parser::EntryHash
+		@prop length number
+		@readonly
+		@since v0.1.0
+	]=]
+	length: number,
+
+	--[=[
+		@within Parser::EntryHash
+		@prop type number
+		@readonly
+		@since v0.1.0
+
+		Corresponds to [lexeme type](Lexeme#Type).
+	]=]
+	type: number
+}
+
+--[=[
+	@within Parser::EntryHash
+	@function new
+	@param value AstName
+	@param length number
+	@param typeLex number
+	@return Entry
+]=]
+function Entry.new(value: AstName, length: number, typeLex: number): Entry
+	return {
+		value = value,
+		length = length,
+		type = typeLex
+	}
+end
+
+--[=[
+	@within Parser::EntryHash
+	@method __eq
+	@param other Entry
+	@return boolean
+	@tag metamethod
+]=]
+function Entry.__eq(self: Entry, other: Entry): boolean
+	return self.value.value == other.value.value
+end
+
+--[=[
+	@class AstNameTable
+	Class from `/Ast/src/Lexer.cpp`.
+]=]
+local AstNameTable = {}
+AstNameTable.__index = AstNameTable
+export type AstNameTable = typeof(setmetatable({} :: {
+	data: {
+		[string]: Entry
+	}
+}, AstNameTable))
+
+function AstNameTable.new(): AstNameTable
+	return setmetatable({
+		data = {}
+	}, AstNameTable)
+end
+
+--[=[
+	@within AstNameTable
+	@method addStatic
+	@param name string
+	@param lexType TypeEnum
+	@return AstName
+	@since v0.1.0
+]=]
+function AstNameTable.addStatic(self: AstNameTable, name: string, typeLexeme: number): AstName
+	local entry = Entry.new(AstName.new(name), #name, typeLexeme)
+
+	-- No need for EntryHash, Luau tables already use hashing. Perhaps it is still more efficient to use FNV1a though?
+	self.data[name] = entry
+
+	return entry.value
+end
+
+--[=[
+	@within AstNameTable
+	@method getOrAddWithType
+	@param name string
+	@param length number
+	@return Pair<AstName, TypeEnum>
+	@since v0.1.0
+]=]
+function AstNameTable.getOrAddWithType(self: AstNameTable, name: string, length: number): Pair<AstName, number>
+	local entry = Entry.new(AstName.new(name), length, Lexeme.Type.Eof)
+	
+	-- entry already was inserted
+	if self.data[name] then
+		return Pair.new(entry.value, entry.type)
+	end
+
+	entry.type = if name:sub(1, 1) == "@" then Lexeme.Type.Attribute else Lexeme.Type.Name
+
+	return Pair.new(entry.value, entry.type)
+end
+
+--[=[
+	@within AstNameTable
+	@method getWithType
+	@param name string
+	@param length number
+	@return Pair<AstName, TypeEnum>
+	@since v0.1.0
+]=]
+function AstNameTable.getWithType(self: AstNameTable, name: string, length: number): Pair<AstName, number>
+	local entry = self.data[name]; if entry then
+		return Pair.new(entry.value, entry.type)
+	end
+	return Pair.new(AstName.new(), Lexeme.Type.Name)
+end
+
+--[=[
+	@within AstNameTable
+	@method getOrAdd
+	@param name string
+	@return AstName
+	@since v0.1.0
+]=]
+function AstNameTable.getOrAdd(self: AstNameTable, name: string): AstName
+	return self:getOrAddWithType(name, #name).first
+end
+
+--[=[
+	@within AstNameTable
+	@method get
+	@param name string
+	@return AstName
+	@since v0.1.0
+]=]
+function AstNameTable.get(self: AstNameTable, name: string): AstName
+	return self:getWithType(name, #name).first
+end
+
+return AstNameTable

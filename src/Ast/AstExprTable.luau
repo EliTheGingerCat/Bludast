@@ -1,0 +1,124 @@
+local AstClassIndex = require("./AstClassIndex")
+local AstExpr = require("./AstExpr")
+local AstVisitor = require("./AstVisitor")
+local Location = require("./Location")
+
+type AstExpr = AstExpr.AstExpr
+type AstVisitor = AstVisitor.AstVisitor
+type Location = Location.Location
+
+export type Item = {
+	--[=[
+		@within AstExprTable::Item
+		@prop kind number
+
+		Corresponds to (kind enum)[AstExprTable::Item::Kind].
+	]=]
+	kind: number,
+
+	--[=[
+		@within AstExprTable::Item
+		@prop key AstExpr?
+	]=]
+	key: AstExpr?,
+
+	--[=[
+		@within AstExprTable::Item
+		@prop value AstExpr?
+	]=]
+	value: AstExpr
+}
+
+export type AstExprTable = AstExpr & {
+	items: {Item}
+}
+
+--[=[
+	@class AstExprTable::Item
+]=]
+local Item = {
+	--[=[
+		@class AstExprTable::Item::Kind
+	]=]
+	Kind = {
+		--[=[
+			@within AstExprTable::Item::Kind
+			@prop List 0
+			@readonly
+			@since v0.1.0
+
+			`foo`, in which case key is a nullptr
+		]=]
+		List = 0,
+
+		--[=[
+			@within AstExprTable::Item::Kind
+			@prop Record 1
+			@readonly
+			@since v0.1.0
+
+			`foo=bar`, in which case key is a AstExprConstantString
+		]=]
+		Record = 1,
+
+		--[=[
+			@within AstExprTable::Item::Kind
+			@prop General 2
+			@readonly
+			@since v0.1.0
+
+			`[foo]=bar`
+		]=]
+		General = 2
+	}
+}
+
+--[=[
+	@within AstExprTable::Item
+	@function new
+	@param kind number
+	@param key AstExpr?
+	@param value AstExpr
+	@return AstExprTable::Item
+	@since v0.1.0
+]=]
+function Item.new(kind: number, key: AstExpr?, value: AstExpr): Item
+	return {
+		kind = kind,
+		key = key,
+		value = value
+	}
+end
+
+--[=[
+	@class AstExprTable
+]=]
+local AstExprTable = {
+	ClassIndex = AstClassIndex(),
+	ClassType = (nil :: any) :: AstExprTable,
+	
+	Item = Item
+}
+local prototype = setmetatable({}, AstExpr.metatable)
+local metatable = {__index = prototype}
+
+function AstExprTable.new(location: Location, items: {Item}): AstExprTable
+	local self = AstExpr.interface.new(AstExprTable.ClassIndex, location) :: AstExprTable
+	self.items = items
+	setmetatable(self, metatable)
+	return self
+end
+
+function prototype.visit(self: AstExprTable, visitor: AstVisitor): ()
+	if visitor:visit(self) then
+		for _, item in self.items do
+			if item.key then
+				item.key:visit(visitor)
+			end
+			
+			item.value:visit(visitor)
+		end
+	end
+end
+
+return AstExprTable
