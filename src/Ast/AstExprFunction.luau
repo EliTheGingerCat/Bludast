@@ -45,6 +45,9 @@ export type AstExprFunction = AstExpr & {
 	argLocation: Location?
 }
 
+--[=[
+	@class AstExprFunction
+]=]
 local AstExprFunction = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstExprFunction

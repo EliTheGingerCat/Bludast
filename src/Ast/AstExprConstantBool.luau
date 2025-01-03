@@ -13,7 +13,18 @@ export type AstExprConstantBool = AstExpr & {
 
 --[=[
 	@class AstExprConstantBool
-	@tag class
+
+	A boolean is true or false. It is named after [George Boole](https://en.wikipedia.org/wiki/George_Boole).
+
+	```lua
+	if true then
+		print("This will be printed.")
+	end
+
+	if false then
+		print("This will not be printed.")
+	end
+	```
 ]=]
 local AstExprConstantBool = {
 	ClassIndex = AstClassIndex(),

@@ -18,7 +18,6 @@ export type AstTypeTable = AstType & {
 
 --[=[
 	@class AstTypeTable
-	@tag class
 ]=]
 local AstTypeTable = {
 	ClassIndex = AstClassIndex(),

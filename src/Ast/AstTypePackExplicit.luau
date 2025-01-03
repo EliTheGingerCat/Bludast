@@ -15,7 +15,6 @@ export type AstTypePackExplicit = AstType & {
 
 --[=[
 	@class AstTypePackExplicit
-	@tag class
 ]=]
 local AstTypePackExplicit = {
 	ClassIndex = AstClassIndex(),

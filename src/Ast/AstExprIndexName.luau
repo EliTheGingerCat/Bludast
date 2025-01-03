@@ -19,6 +19,9 @@ export type AstExprIndexName = AstExpr & {
 	op: string
 }
 
+--[=[
+	@class AstExprIndexName
+]=]
 local AstExprIndexName = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstExprIndexName

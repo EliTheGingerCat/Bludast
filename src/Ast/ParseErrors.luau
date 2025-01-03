@@ -4,6 +4,9 @@ local Vector = require("./Vector")
 type ParseError = ParseError.ParseError
 type Vector<T> = Vector.Vector<T>
 
+--[=[
+	@class ParseErrors
+]=]
 local ParseErrors = {}
 local prototype = {}
 local metatable = {__index = prototype}

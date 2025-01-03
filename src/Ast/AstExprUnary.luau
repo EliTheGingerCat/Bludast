@@ -9,7 +9,6 @@ type Location = Location.Location
 
 --[=[
 	@class AstExprUnary
-	@tag class
 
 	Class from [`/Ast/src/Ast.cpp`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/src/Ast.cpp#L250-L261) and [`/Ast/include/Luau/Ast.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Ast.h#L472-L490).
 ]=]

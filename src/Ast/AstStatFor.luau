@@ -24,6 +24,9 @@ export type AstStatFor = AstStat & {
 	doLocation: Location
 }
 
+--[=[
+	@class AstStatFor
+]=]
 local AstStatFor = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstStatFor

@@ -16,6 +16,9 @@ export type AstStatFunction = AstStat & {
 	func: AstExprFunction
 }
 
+--[=[
+	@class AstStatFunction
+]=]
 local AstStatFunction = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstStatFunction

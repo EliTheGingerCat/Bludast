@@ -13,7 +13,6 @@ export type AstTypePackVariadic = AstType & {
 
 --[=[
 	@class AstTypePackVariadic
-	@tag class
 ]=]
 local AstTypePackVariadic = {
 	ClassIndex = AstClassIndex(),

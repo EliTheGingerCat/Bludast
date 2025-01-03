@@ -17,6 +17,9 @@ local AstStatError = {
 local prototype = setmetatable({}, AstStat.metatable)
 local metatable = {__index = prototype}
 
+--[=[
+	@class AstStatError
+]=]
 function AstStatError.new(location: Location.Location, expressions: {AstExpr.AstExpr}, statements: {AstStat.AstStat}, messageIndex: number): AstStatError
 	local self = AstStat.interface.new(AstStatError.ClassIndex, location) :: AstStatError
 	self.expressions = expressions

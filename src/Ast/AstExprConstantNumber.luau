@@ -14,7 +14,6 @@ export type AstExprConstantNumber = AstExpr & {
 
 --[=[
 	@class AstExprConstantNumber
-	@tag class
 ]=]
 local AstExprConstantNumber = {
 	ClassIndex = AstClassIndex(),

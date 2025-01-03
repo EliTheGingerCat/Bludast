@@ -18,6 +18,9 @@ export type AstStatLocal = AstStat & {
 	equalsSignLocation: Location?
 }
 
+--[=[
+	@class AstStatLocal
+]=]
 local AstStatLocal = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstStatLocal

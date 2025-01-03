@@ -13,6 +13,9 @@ type AstExprCall = AstExpr & {
 	argLocation: Location
 }
 
+--[=[
+	@class AstExprCall
+]=]
 local AstExprCall = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstExprCall

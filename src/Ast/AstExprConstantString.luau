@@ -14,7 +14,15 @@ export type AstExprConstantString = AstExpr & {
 
 --[=[
 	@class AstExprConstantString
-	@tag class
+
+	A string is technically a vector of numbers, but we typically think of them as pieces of text.
+
+	```lua
+	local greeting = "Hello!"
+
+	-- Characters and numbers are one and the same.
+	assert("A" == string.char(65))
+	```
 ]=]
 local AstExprConstantString = {
 	ClassIndex = AstClassIndex(),

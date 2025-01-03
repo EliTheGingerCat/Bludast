@@ -15,7 +15,6 @@ export type AstTypeTypeof = AstType & {
 
 --[=[
 	@class AstTypeTypeof
-	@tag class
 ]=]
 local AstTypeTypeof = {
 	ClassIndex = AstClassIndex(),

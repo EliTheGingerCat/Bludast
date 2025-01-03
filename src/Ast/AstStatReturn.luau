@@ -13,15 +13,18 @@ export type AstStatContinue = AstStat & {
 	list: {AstExpr}
 }
 
-local interface = {
+--[=[
+	@class AstStatReturn
+]=]
+local AstStatReturn = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstStatContinue
 }
 local prototype = setmetatable({}, AstStat.metatable)
 local metatable = {__index = prototype}
 
-function interface.new(location: Location, list: {AstExpr}): AstStatContinue
-	local self = setmetatable(AstStat.interface.new(interface.ClassIndex, location), metatable) :: AstStatContinue
+function AstStatReturn.new(location: Location, list: {AstExpr}): AstStatContinue
+	local self = setmetatable(AstStat.interface.new(AstStatReturn.ClassIndex, location), metatable) :: AstStatContinue
 	self.list = list
 	return self
 end
@@ -35,4 +38,4 @@ function prototype.visit(self: AstStatContinue, visitor: AstVisitor): ()
 	end
 end
 
-return interface
+return AstStatReturn

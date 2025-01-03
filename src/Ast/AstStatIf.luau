@@ -21,6 +21,9 @@ export type AstStatIf = AstStat & {
 	elseLocation: Location?
 }
 
+--[=[
+	@class AstStatIf
+]=]
 local AstStatIf = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstStatIf

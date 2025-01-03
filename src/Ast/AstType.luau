@@ -10,6 +10,9 @@ local AstType = {}
 local prototype = setmetatable({}, AstNode.metatable)
 local metatable = {__index = prototype}
 
+--[=[
+	@class AstType
+]=]
 function AstType.new(classIndex: number, location: Location): AstType
 	local self = AstNode.interface.new(classIndex, location)
 	setmetatable(self, metatable)

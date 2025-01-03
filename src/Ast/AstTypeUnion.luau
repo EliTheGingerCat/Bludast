@@ -13,7 +13,6 @@ export type AstTypeUnion = AstType & {
 
 --[=[
 	@class AstTypeUnion
-	@tag class
 ]=]
 local AstTypeUnion = {
 	ClassIndex = AstClassIndex(),

@@ -1,5 +1,6 @@
 --[=[
 	@class StringUtils
+	
 	Library from `/Ast/src/StringUtils.cpp`.
 ]=]
 

@@ -7,22 +7,23 @@ type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
---[=[
-	@class AstTypeSingletonString
-
-	A string is technically a vector of numbers, but we typically think of them as pieces of text.
-
-	```lua
-	local greeting = "Hello!"
-
-	-- Characters and numbers are one and the same.
-	assert("A" == string.char(65))
-	```
-]=]
 export type AstTypeSingletonString = AstType & {
 	value: string
 }
 
+--[=[
+	@class AstTypeSingletonString
+
+	```lua
+	type action = "walk" | "run"
+	local response: action
+	
+	if response == "walk" then
+		print("Walking.")
+	elseif response == "rjn" then -- Type error: response is either "walk" or "run"
+		print("Running.")
+	end
+]=]
 local AstTypeSingletonString = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstTypeSingletonString

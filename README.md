@@ -29,7 +29,6 @@ Current version (commit hash): [7d4033071abebe09971b410d362c00ffb3084afb](https:
 
 `/Ast` is sort of done (needs testing), working on `/Compiler`.
 
-
 ## Contributions
 
 Contributions are only really necessary for maintenance or performance, though I am also open to adding other stuff to the repository that relates to the Luau language itself. For example, I think it might be interesting to add a Luau By Example similar to Rust By Example.
@@ -39,3 +38,9 @@ Contributions are only really necessary for maintenance or performance, though I
 Install [Rokit](https://github.com/rojo-rbx/rokit), then run `rokit install`.
 
 Install [Node.js and Node Package Manager](https://nodejs.org/en/download), then run `npm install`.
+
+**Moonwave**
+
+Use `moonwave dev` to view the site.
+
+See: https://github.com/evaera/moonwave/issues/163

@@ -15,6 +15,9 @@ local AstStatExpr = {
 local prototype = setmetatable({}, AstStat.metatable)
 local metatable = {__index = prototype}
 
+--[=[
+	@class AstStatExpr
+]=]
 function AstStatExpr.new(location: Location.Location, expr: AstExpr.AstExpr): AstStatExpr
 	local self = AstStat.interface.new(AstStatExpr.ClassIndex, location) :: AstStatExpr
 	self.expr = expr

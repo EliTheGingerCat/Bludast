@@ -13,6 +13,9 @@ export type AstTableIndexer = {
 	accessLocation: Location?
 }
 
+--[=[
+	@class AstTableIndexer
+]=]
 local AstTableIndexer = {}
 
 function AstTableIndexer.new(indexType: AstType, resultType: AstType, location: Location, access: number, accessLocation: Location?): AstTableIndexer

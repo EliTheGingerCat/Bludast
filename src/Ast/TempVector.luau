@@ -74,7 +74,7 @@ function prototype.push_back<T>(self: TempVector<T>, item: T): ()
 end
 
 function prototype.copy_data<T>(self: TempVector<T>): {T}
-	return self.storage:copy_range(1, self.offset + self.size_)
+	return self.storage:copy_range(1, self.offset + self.size_ - 1)
 end
 
 type iteratorState<T> = {

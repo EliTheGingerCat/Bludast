@@ -1,5 +1,6 @@
 --[=[
 	@class Try
+	
 	Syntax sugar for pcall to match the C++ code more closely.
 ]=]
 --[=[

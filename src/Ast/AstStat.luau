@@ -8,11 +8,14 @@ export type AstStat = AstNode & {
 	hasSemicolon: boolean
 }
 
-local interface = {}
+--[=[
+	@class AstStat
+]=]
+local AstStat = {}
 local prototype = setmetatable({}, AstNode.metatable)
 local metatable = {__index = prototype}
 
-function interface.new(classIndex: number, location: Location): AstStat
+function AstStat.new(classIndex: number, location: Location): AstStat
 	local self = AstNode.interface.new(classIndex, location) :: AstStat
 	self.hasSemicolon = false
 	setmetatable(self, metatable)
@@ -24,6 +27,6 @@ function prototype.asStat(self: AstStat): AstStat
 end
 
 return {
-	interface = interface,
+	interface = AstStat,
 	metatable = metatable
 }

@@ -21,14 +21,10 @@ export type AstStatLocalFunction = AstStat & {
 
 	Class from [`/Ast/src/Ast.cpp`](https://github.com/luau-lang/luau/blob/7d4033071abebe09971b410d362c00ffb3084afb/Ast/src/Ast.cpp#L663-L674) and [`/Ast/include/Luau/Ast.h`](https://github.com/luau-lang/luau/blob/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Ast.h#L793-L804).
 
-	Represents:
-
 	```lua
-
 	local function name()
 		-- body
 	end
-
 	```
 ]=]
 local AstStatLocalFunction = {

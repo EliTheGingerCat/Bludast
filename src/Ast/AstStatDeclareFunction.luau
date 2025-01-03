@@ -1,5 +1,3 @@
--- This file is very similar to `AstTypeFunction.luau`.
-
 local AstArgumentName = require("./AstArgumentName")
 local AstAttr = require("./AstAttr")
 local AstClassIndex = require("./AstClassIndex")
@@ -48,7 +46,6 @@ export type AstStatDeclareFunction = AstStat & {
 
 --[=[
 	@class AstStatDeclareFunction
-	@tag class
 
 	Class from [`/Ast/src/Ast.cpp`]((https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/src/Ast.cpp#L721-L769)) and [`/Ast/include/Luau/Ast.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Ast.h#L837-L862).
 
@@ -68,7 +65,7 @@ local prototype = setmetatable({}, AstStat.metatable)
 local metatable = {__index = prototype}
 
 -- Eli: I do not get paid enough to deal with all these overloaded functions.
-AstStatDeclareFunction.new = function(location, a2, a3, a4, a5, a6, a7, a8)
+AstStatDeclareFunction.new = function(location, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any, a8: any)
 	local self = AstStat.interface.new(AstStatDeclareFunction.ClassIndex, location) :: AstStatDeclareFunction
 	local arguments
 	if a8 then
@@ -81,13 +78,10 @@ AstStatDeclareFunction.new = function(location, a2, a3, a4, a5, a6, a7, a8)
 	self.name = arguments[1]
 	self.generics = arguments[2]
 	self.genericPacks = arguments[3]
-	self.argTypes = arguments[4]
-	self.argNames = arguments[5]
+	self.params = arguments[4]
+	self.paramNames = arguments[5]
 	self.returnTypes = arguments[6]
 	setmetatable(self, metatable)
-
-	assert(#self.argNames == 0 or #self.argNames == #self.argTypes)
-
 	return self
 end :: (
 	  ((location: Location, name: AstName, generics: {AstGenericType}, genericPacks: {AstGenericTypePack}, params: AstTypeList, paramNames: {AstArgumentName}, retTypes: AstTypeList) -> AstStatDeclareFunction)
@@ -102,7 +96,7 @@ function prototype.visit(self: AstStatDeclareFunction, visitor: AstVisitor): ()
 end
 
 function prototype.isCheckedFunction(self: AstStatDeclareFunction): boolean
-	assert(FastFlags.LuauAttributeSyntax)
+	assert(FastVariables.LuauAttributeSyntax)
 
 	for _, attr in self.attributes do
 		if attr.type == AstAttr.Type.Checked then

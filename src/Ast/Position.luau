@@ -2,6 +2,10 @@
 	@class Position
 	Struct from `root/Ast/src/Location.cpp`.
 ]=]
+local Position = {}
+local prototype = {}
+local metatable = {__index = prototype}
+
 --[=[
 	@within Position
 	@prop line number
@@ -12,12 +16,12 @@
 	@prop column number
 	@since v0.1.0
 ]=]
-local Position = {}
-Position.__index = Position
+local _
+
 export type Position = typeof(setmetatable({} :: {
 	line: number,
 	column: number
-}, Position))
+}, metatable))
 
 --[=[
 	@within Position
@@ -31,7 +35,7 @@ function Position.new(line: number, column: number): Position
 	return setmetatable({
 		line = line,
 		column = column
-	}, Position)
+	}, metatable)
 end
 
 --[=[
@@ -42,7 +46,7 @@ end
 	@since v0.1.0
 ]=]
 function Position.is(object: any): Position?
-	if getmetatable(object) == Position then
+	if getmetatable(object) == metatable then
 		return object
 	else
 		return nil
@@ -57,7 +61,7 @@ end
 	@since v0.1.0
 	@tag metamethod
 ]=]
-function Position.__eq(self: Position, rhs: Position): boolean
+function metatable.__eq(self: Position, rhs: Position): boolean
 	return self.line == rhs.line and self.column == rhs.column
 end
 
@@ -69,7 +73,7 @@ end
 	@since v0.1.0
 	@tag metamethod
 ]=]
-function Position.__lt(self: Position, rhs: Position): boolean
+function metatable.__lt(self: Position, rhs: Position): boolean
 	if self.line == rhs.line then
 		return self.column < rhs.column
 	else
@@ -85,19 +89,19 @@ end
 	@since v0.1.0
 	@tag metamethod
 ]=]
-function Position.__le(self: Position, rhs: Position): boolean
+function metatable.__le(self: Position, rhs: Position): boolean
 	return self == rhs or self < rhs
 end
 
 --[=[
 	@within Position
-	@function shift
+	@method shift
 	@param start Position
 	@param oldEnd Position
 	@param newEnd Position
 	@since v0.1.0
 ]=]
-function Position.shift(self: Position, start: Position, oldEnd: Position, newEnd: Position): ()
+function prototype.shift(self: Position, start: Position, oldEnd: Position, newEnd: Position): ()
 	if self >= start then
 		if self.line < oldEnd.line then
 			self.line += newEnd.line - oldEnd.line

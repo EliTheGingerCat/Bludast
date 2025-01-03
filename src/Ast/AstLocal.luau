@@ -18,6 +18,9 @@ export type AstLocal = {
 
 local AstLocal = {}
 
+--[=[
+	@class AstLocal
+]=]
 function AstLocal.new(name: AstName, location: Location, shadow: AstLocal?, functionDepth: number, loopDepth: number, annotation: AstType?): AstLocal
 	return {
 		name = name,

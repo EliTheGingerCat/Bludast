@@ -23,7 +23,6 @@ export type AstStatDeclareClass = AstStat & {
 
 --[=[
 	@class AstStatDeclareClass
-	@tag class
 ]=]
 local AstStatDeclareClass = {
 	ClassIndex = AstClassIndex(),

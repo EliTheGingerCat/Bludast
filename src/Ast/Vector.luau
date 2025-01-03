@@ -1,17 +1,20 @@
 --[=[
 	@class Vector
-	Class template from C++ std.
-
-	<T>
-	
-	https://cplusplus.com/reference/vector/vector/
+	Class template from [C++ std](https://cplusplus.com/reference/vector/vector/).
 ]=]
+local Vector = {}
+local prototype = {}
+local metatable = {__index = prototype}
+
+Vector.prototype = prototype
+
 --[=[
 	@within Vector
 	@prop _data {T}
 	@readonly
 	@private
 	@since v0.1.0
+
 	The underlying table.
 ]=]
 --[=[
@@ -20,11 +23,10 @@
 	@readonly
 	@private
 	@since v0.1.0
+	
 	The amount of elements in the table, not including [EMPTY](Vector#EMPTY) values.
 ]=]
-local Vector = {}
-local prototype = {}
-local metatable = {__index = prototype}
+local _
 
 --[=[
 	@within Vector
@@ -33,6 +35,7 @@ local metatable = {__index = prototype}
 	@private
 	@since v0.1.0
 	@tag local
+
 	A value that represents nothing, used to prevent the key from being deallocated to (hopefully) improve performance. Displays as "EMPTY" when printed.
 ]=]
 local EMPTY = setmetatable({}, {
@@ -56,8 +59,7 @@ export type Vector<T> = typeof(setmetatable({} :: {
 
 --[=[
 	@within Vector
-	@function new
-	@return Vector
+	@since v0.1.0
 ]=]
 function Vector.new(): Vector<any>
 	return setmetatable({
@@ -68,7 +70,7 @@ end
 
 --[=[
 	@within Vector
-	@param n number
+	@since v0.1.0
 
 	Ensure the vector capacity is *at least* this size.
 ]=]
@@ -82,12 +84,9 @@ end
 
 --[=[
 	@within Vector
-	@param count number
-	@param value T
+	@since v0.1.0
 
-	<T>
-
-	Sets the vector size to `count` exactly, filling empty spaces with `value`.
+	Sets the vector size and capacity to `count` exactly, filling empty spaces with `value`.
 ]=]
 function prototype.resize<T>(self: Vector<T>, count: number, value: T): ()
 	local size = self._size
@@ -105,20 +104,8 @@ end
 
 --[=[
 	@within Vector
-	@method back
-	@return T
-	<T>
-	Get the item from the back.
-]=]
-function prototype.back<T>(self: Vector<T>): T
-	return self._data[self._size]
-end
+	@since v0.1.0
 
---[=[
-	@within Vector
-	@method assign
-	@param n number
-	@param val any
 	Essentially [table.create](https://create.roblox.com/docs/reference/engine/libraries/table#create).
 ]=]
 function prototype.assign(self: Vector<any>, n: number, val: any): ()
@@ -126,11 +113,30 @@ function prototype.assign(self: Vector<any>, n: number, val: any): ()
 	self._size = n
 end
 
+--[=[
+	@within Vector
+	@since v0.1.0
+
+	Gets the item at the end.
+]=]
+function prototype.back<T>(self: Vector<T>): T
+	assert(self._size > 0)
+	return self._data[self._size]
+end
+
+--[=[
+	@within Vector
+	@since v0.1.0
+]=]
 function prototype.clear(self: Vector<any>): ()
 	table.clear(self._data)
 	self._size = 0
 end
 
+--[=[
+	@within Vector
+	@since v0.1.0
+]=]
 function prototype.empty(self: Vector<any>): boolean
 	return self._size == 0
 end
@@ -139,7 +145,12 @@ end
 	@within Vector
 	@method erase
 	@param first number
-	@param last number?
+	@param last number
+	@since v0.1.0
+
+	Overloads:
+	- first: number, last: number
+	- position: number -- the same as passing `erase(position, position)` 
 
 	Set an index or a range to empty.
 ]=]
@@ -162,23 +173,57 @@ end :: (
 	& ((self: Vector<any>, first: number, last: number) -> ())
 )
 
+--[=[
+	@within Vector
+	@since v0.1.0
+]=]
 function prototype.front<T>(self: Vector<T>): T
+	assert(self._size ~= 0)
 	return self._data[1]
 end
 
+--[=[
+	@within Vector
+	@since v0.1.0
+
+	Use this method to index the inner array. The `__index` metamethod could be employed instead, but this would ruin typechecking unless methods are typed statically.
+]=]
 function prototype.get<T>(self: Vector<T>, index: number): T
+	assert(0 < index and index < self._size + 1)
 	return self._data[index]
 end
 
+--[=[
+	@within Vector
+	@since v0.1.0
+]=]
 function prototype.size(self: Vector<any>): number
 	return self._size
 end
 
--- for TempVector
+--[=[
+	@within Vector
+	@since v0.1.0
+
+	Returns a copy of the inner data. Only used by [TempVector].
+]=]
 function prototype.copy_range<T>(self: Vector<T>, from: number, to: number): {T}
+	assert(from > 0 and to < self._size + 1)
 	return table.move(self._data, from, to, 1, {})
 end
 
+--[=[
+	@within Vector
+	@since v0.1.0
+
+	Returns the inner array.
+
+	:::danger
+
+	The inner array must not be mutated.
+
+	:::
+]=]
 function prototype.data<T>(self: Vector<T>): {T}
 	return self._data
 end
@@ -186,7 +231,8 @@ end
 --[=[
 	@within Vector
 	@method pop_back
-	Removes the value at the back.
+	
+	Removes the value at the end.
 ]=]
 function prototype.pop_back(self: Vector<any>): ()
 	self._data[self._size] = EMPTY
@@ -195,12 +241,9 @@ end
 
 --[=[
 	@within Vector
-	@method push_back
-	@param val T
-	
-	<T>
+	@since v0.1.0
 
-	Push the value onto the end.
+	Adds a new value at the end.
 ]=]
 function prototype.push_back<T>(self: Vector<T>, val: T): ()
 	self._size += 1
@@ -211,8 +254,7 @@ end
 	@within Vector
 	@method emplace_back
 	@param val T
-
-	<T>
+	@since v0.1.0
 
 	Alias for [push_back](Vector#push_back).
 ]=]
@@ -222,27 +264,33 @@ prototype.emplace_back = prototype.push_back
 
 --[=[
 	@within Vector
-	@method set
-	@param index number
-	@param value T
-	<T>
+	@since v0.1.0
 ]=]
 function prototype.set<T>(self: Vector<T>, index: number, value: T): ()
 	assert(0 < index and index < self._size + 1)
 	self._data[index] = value
 end
 
+--[=[
+	@within Vector
+	@since v0.1.0
+]=]
 function prototype.set_increment(self: Vector<number>, index: number): ()
 	self._data[index] += 1
 end
 
+--[=[
+	@within Vector
+	@since v0.1.0
+]=]
 function prototype.set_decrement(self: Vector<number>, index: number): ()
 	self._data[index] -= 1
 end
 
 --[=[
 	@within Vector
-	@method check
+	@private
+	@since v0.1.0
 
 	Used for debugging.
 ]=]

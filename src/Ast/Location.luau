@@ -24,8 +24,8 @@ local Location = {}
 local prototype = {}
 local metatable = {__index = prototype}
 export type Location = typeof(setmetatable({} :: {
-	begin: Position.Position,
-	finish: Position.Position
+	begin: Position,
+	finish: Position
 }, metatable))
 
 --[=[
@@ -41,7 +41,7 @@ export type Location = typeof(setmetatable({} :: {
 	- Position, Position
 	- Location, Location
 ]=]
-function Location.new(begin: nil | Position.Position | Location, finish: nil | Position.Position | number | Location): Location
+function Location.new(begin: nil | Position | Location, finish: nil | Position | number | Location): Location
 	local beginPosition = Position.is(begin)
 	local finishPosition = Position.is(finish)
 	local beginLocation = Location.is(begin)
@@ -87,7 +87,7 @@ end
 	Returns the object if it is a Location object.
 ]=]
 function Location.is(object: any): Location?
-	if getmetatable(object) == Location then
+	if getmetatable(object) == metatable then
 		return object
 	else
 		return nil
