@@ -1,9 +1,7 @@
 local Position = require("./Position")
 
---[=[
-	@class Location
-	Struct from `root/Ast/src/Location.cpp`.
-]=]
+type Position = Position.Position
+
 --[=[
 	@within Location
 	@prop begin Position
@@ -16,12 +14,19 @@ local Position = require("./Position")
 	@readonly
 	@since v0.1.0
 ]=]
+local _
+
+--[=[
+	@class Location
+	Struct from `root/Ast/src/Location.cpp`.
+]=]
 local Location = {}
-Location.__index = Location
+local prototype = {}
+local metatable = {__index = prototype}
 export type Location = typeof(setmetatable({} :: {
 	begin: Position.Position,
 	finish: Position.Position
-}, Location))
+}, metatable))
 
 --[=[
 	@within Location
@@ -70,7 +75,7 @@ function Location.new(begin: nil | Position.Position | Location, finish: nil | P
 	else
 		error("Invalid arguments to Location constructor.")
 	end
-	return setmetatable(object, Location)
+	return setmetatable(object, metatable)
 end
 
 --[=[
@@ -104,7 +109,7 @@ end
 	assert(one == two)
 	```
 ]=]
-function Location.__eq(self: Location, rhs: Location): boolean
+function metatable.__eq(self: Location, rhs: Location): boolean
 	return self.begin == rhs.begin and self.finish == rhs.finish
 end
 
@@ -116,7 +121,7 @@ end
 	@since v0.1.0
 	Whether the given Location is fully within self, inclusive.
 ]=]
-function Location.encloses(self: Location, l: Location): boolean
+function prototype.encloses(self: Location, l: Location): boolean
 	return self.begin <= l.begin and self.finish >= l.finish
 end
 
@@ -128,7 +133,7 @@ end
 	@since v0.1.0
 	Whether the given Location intersects with self at all, inclusive.
 ]=]
-function Location.overlaps(self: Location, l: Location): boolean
+function prototype.overlaps(self: Location, l: Location): boolean
 	return self.begin <= l.begin and self.finish >= l.begin or self.begin <= l.finish and self.finish >= l.finish or self.begin >= l.begin and self.finish <= l.finish
 end
 
@@ -140,7 +145,7 @@ end
 	@since v0.1.0
 	Whether the given Position is within the bounds of self, except that it can not be at `self.finish`.
 ]=]
-function Location.contains(self: Location, p: Position.Position): boolean
+function prototype.contains(self: Location, p: Position.Position): boolean
 	return self.begin <= p and p < self.finish
 end
 
@@ -152,7 +157,7 @@ end
 	@since v0.1.0
 	Whether the given Position is within the bounds of self, inclusive.
 ]=]
-function Location.containsClosed(self: Location, p: Position.Position): boolean
+function prototype.containsClosed(self: Location, p: Position.Position): boolean
 	return self.begin <= p and p <= self.finish
 end
 
@@ -163,7 +168,7 @@ end
 	@since v0.1.0
 	Ensures that both bounds are further than or at `other`'s bounds, respectively.
 ]=]
-function Location.extend(self: Location, other: Location): ()
+function prototype.extend(self: Location, other: Location): ()
 	if other.begin < self.begin then
 		self.begin = other.begin
 	end
@@ -181,7 +186,7 @@ end
 	@since v0.1.0
 	Shifts both of self's Positions by `oldEnd` and `newEnd`.
 ]=]
-function Location.shift(self: Location, start: Position.Position, oldEnd: Position.Position, newEnd: Position.Position): ()
+function prototype.shift(self: Location, start: Position.Position, oldEnd: Position.Position, newEnd: Position.Position): ()
 	self.begin:shift(start, oldEnd, newEnd)
 	self.finish:shift(start, oldEnd, newEnd)
 end
