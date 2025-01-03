@@ -11,32 +11,32 @@ type AstTypeList = AstTypeList.AstTypeList
 type AstVisitor = AstVisitor.AstVisitor
 
 --[=[
-    @class AstUtilities
+	@class AstUtilities
 ]=]
 local AstUtilities = {}
 
 function AstUtilities.visitTypeList(visitor: AstVisitor, list: AstTypeList): ()
-    for _, ty in list.types do
-        ty:visit(visitor)
-    end
+	for _, ty in list.types do
+		ty:visit(visitor)
+	end
 
-    if list.tailType then
-        list.tailType:visit(visitor)
-    end
+	if list.tailType then
+		list.tailType:visit(visitor)
+	end
 end
 
 function AstUtilities.getIdentifier(node: AstExpr): AstName
-    local exprG = node:as(AstExprGlobal)
-    if exprG then
-        return exprG.name
-    end
+	local exprG = node:as(AstExprGlobal)
+	if exprG then
+		return exprG.name
+	end
 
-    local exprL = node:as(AstExprLocal)
-    if exprL then
-        return exprL.localAst.name
-    end
+	local exprL = node:as(AstExprLocal)
+	if exprL then
+		return exprL.localAst.name
+	end
 
-    return AstName.new()
+	return AstName.new()
 end
 
 return AstUtilities

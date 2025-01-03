@@ -132,7 +132,7 @@ local prototype = {}
 local metatable = {__index = prototype}
 
 --[=[
-	@class Parser::BinaryOpPriority
+	@class Parser_BinaryOpPriority
 ]=]
 local BinaryOpPriority = {}
 
@@ -142,11 +142,11 @@ type BinaryOpPriority = {
 }
 
 --[=[
-	@within Parser::BinaryOpPriority
+	@within Parser_BinaryOpPriority
 	@function new
 	@param left number
 	@param right number
-	@return Parser::BinaryOpPriority
+	@return Parser_BinaryOpPriority
 ]=]
 function BinaryOpPriority.new(left: number, right: number): BinaryOpPriority
 	return {
@@ -156,7 +156,7 @@ function BinaryOpPriority.new(left: number, right: number): BinaryOpPriority
 end
 
 --[=[
-	@class Parser::MatchLexeme
+	@class Parser_MatchLexeme
 
 	Struct from [`/Ast/include/Luau/Parser.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Parser.h#L281-291).
 ]=]
@@ -164,7 +164,7 @@ local MatchLexeme = {}
 
 type MatchLexeme = {
 	--[=[
-		@within Parser::MatchLexeme
+		@within Parser_MatchLexeme
 		@prop type number -- (Lexeme type)[Lexeme#Type]
 		@readonly
 		@since v0.1.0
@@ -172,7 +172,7 @@ type MatchLexeme = {
 	type: number,
 
 	--[=[
-		@within Parser::MatchLexeme
+		@within Parser_MatchLexeme
 		@prop position Position
 		@readonly
 		@since v0.1.0
@@ -181,10 +181,10 @@ type MatchLexeme = {
 }
 
 --[=[
-	@within Parser::MatchLexeme
+	@within Parser_MatchLexeme
 	@function new
 	@param l Lexeme
-	@return Parser::MatchLexeme
+	@return Parser_MatchLexeme
 ]=]
 function MatchLexeme.new(l: Lexeme): MatchLexeme
 	return {
@@ -194,21 +194,21 @@ function MatchLexeme.new(l: Lexeme): MatchLexeme
 end
 
 --[=[
-	@class Parser::Function
+	@class Parser_Function
 	Struct from `root/Ast/include/Luau/Parser.h`.
 ]=]
 local Function = {}
 
 type Function = {
 	--[=[
-		@within Parser::Function
+		@within Parser_Function
 		@prop vararg boolean
 		@since v0.1.0
 	]=]
 	vararg: boolean,
 
 	--[=[
-		@within Parser::Function
+		@within Parser_Function
 		@prop loopDepth number
 		@since v0.1.0
 	]=]
@@ -216,9 +216,9 @@ type Function = {
 }
 
 --[=[
-	@within Parser::Function
+	@within Parser_Function
 	@function new
-	@return Parser::Function
+	@return Parser_Function
 	Initialised to
 	
 	```lua
@@ -236,7 +236,7 @@ function Function.new(): Function
 end
 
 --[=[
-	@class Parser::Name
+	@class Parser_Name
 
 	Struct from [`/Ast/include/Luau/Parser.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Parser.h#L358-368).
 ]=]
@@ -244,7 +244,7 @@ local Name = {}
 
 type Name = {
 	--[=[
-		@within Parser::Name
+		@within Parser_Name
 		@prop name AstName
 		@readonly
 		@since v0.1.0
@@ -252,7 +252,7 @@ type Name = {
 	name: AstName,
 
 	--[=[
-		@within Parser::Name
+		@within Parser_Name
 		@prop location Location
 		@readonly
 		@since v0.1.0
@@ -261,11 +261,11 @@ type Name = {
 }
 
 --[=[
-	@within Parser::Name
+	@within Parser_Name
 	@function new
 	@param name AstName
 	@param location Location
-	@return Parser::Name
+	@return Parser_Name
 ]=]
 function Name.new(name: AstName, location: Location): Name
 	return {
@@ -275,7 +275,7 @@ function Name.new(name: AstName, location: Location): Name
 end
 
 --[=[
-	@class Parser::Binding
+	@class Parser_Binding
 
 	Struct from [`/Ast/include/Luau/Parser.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Parser.h#L370-380).
 
@@ -291,14 +291,14 @@ local Binding = {}
 
 type Binding = {
 	--[=[
-		@within Parser::Binding
+		@within Parser_Binding
 		@prop name Name
 		@since v0.1.0
 	]=]
 	name: Name,
 
 	--[=[
-		@within Parser::Binding
+		@within Parser_Binding
 		@prop annotation AstType
 		@since v0.1.0
 	]=]
@@ -306,11 +306,11 @@ type Binding = {
 }
 
 --[=[
-	@within Parser::Binding
+	@within Parser_Binding
 	@function new
 	@param name Name
 	@param annotation AstType
-	@return Parser::Binding
+	@return Parser_Binding
 ]=]
 function Binding.new(name: Name, annotation: AstType?): Binding
 	return {
@@ -1680,7 +1680,7 @@ function prototype.parseOptionalReturnType(self: Parser): AstTypeList?
 		local result = results.second
 
 		-- At this point, if we find a , character, it indicates that there are multiple return types
-        -- in this type annotation, but the list wasn't wrapped in parentheses.
+		-- in this type annotation, but the list wasn't wrapped in parentheses.
 		if self.lexer:current().type == (","):byte() then
 			self:report(self.lexer:current().location, "Expected a statement, got ','; did you forget to wrap the list of return types in parentheses?")
 
@@ -1843,7 +1843,7 @@ function prototype.parseTableType(self: Parser, inDeclarationContext: boolean): 
 		elseif self.lexer:current().type == ("["):byte() then
 			if indexer then
 				-- maybe we don't need to parse the entire badIndexer...
-                -- however, we either have { or [ to lint, not the entire table type or the bad indexer.
+				-- however, we either have { or [ to lint, not the entire table type or the bad indexer.
 				local badIndexer = self:parseTableIndexer(access, accessLocation)
 
 				-- we lose all additional indexer expressions from the AST after error recovery here
@@ -2278,39 +2278,39 @@ end
 
 function prototype.parseBinaryOp(self: Parser, l: Lexeme): number?
 	if l.type == ("+"):byte() then
-        return AstExprBinary.Op.Add
-    elseif l.type == ("-"):byte() then
-        return AstExprBinary.Op.Sub
-    elseif l.type == ("*"):byte() then
-        return AstExprBinary.Op.Mul
-    elseif l.type == ("/"):byte() then
-        return AstExprBinary.Op.Div
-    elseif l.type == Lexeme.Type.FloorDiv then
-        return AstExprBinary.Op.FloorDiv
-    elseif l.type == ("%"):byte() then
-        return AstExprBinary.Op.Mod
-    elseif l.type == ("^"):byte() then
-        return AstExprBinary.Op.Pow
-    elseif l.type == Lexeme.Type.Dot2 then
-        return AstExprBinary.Op.Concat
-    elseif l.type == Lexeme.Type.NotEqual then
-        return AstExprBinary.Op.CompareNe
-    elseif l.type == Lexeme.Type.Equal then
-        return AstExprBinary.Op.CompareEq
-    elseif l.type == ("<"):byte() then
-        return AstExprBinary.Op.CompareLt
-    elseif l.type == Lexeme.Type.LessEqual then
-        return AstExprBinary.Op.CompareLe
-    elseif l.type == (">"):byte() then
-        return AstExprBinary.Op.CompareGt
-    elseif l.type == Lexeme.Type.GreaterEqual then
-        return AstExprBinary.Op.CompareGe
-    elseif l.type == Lexeme.Type.ReservedAnd then
-        return AstExprBinary.Op.And
-    elseif l.type == Lexeme.Type.ReservedOr then
-        return AstExprBinary.Op.Or
-    else
-        return nil
+		return AstExprBinary.Op.Add
+	elseif l.type == ("-"):byte() then
+		return AstExprBinary.Op.Sub
+	elseif l.type == ("*"):byte() then
+		return AstExprBinary.Op.Mul
+	elseif l.type == ("/"):byte() then
+		return AstExprBinary.Op.Div
+	elseif l.type == Lexeme.Type.FloorDiv then
+		return AstExprBinary.Op.FloorDiv
+	elseif l.type == ("%"):byte() then
+		return AstExprBinary.Op.Mod
+	elseif l.type == ("^"):byte() then
+		return AstExprBinary.Op.Pow
+	elseif l.type == Lexeme.Type.Dot2 then
+		return AstExprBinary.Op.Concat
+	elseif l.type == Lexeme.Type.NotEqual then
+		return AstExprBinary.Op.CompareNe
+	elseif l.type == Lexeme.Type.Equal then
+		return AstExprBinary.Op.CompareEq
+	elseif l.type == ("<"):byte() then
+		return AstExprBinary.Op.CompareLt
+	elseif l.type == Lexeme.Type.LessEqual then
+		return AstExprBinary.Op.CompareLe
+	elseif l.type == (">"):byte() then
+		return AstExprBinary.Op.CompareGt
+	elseif l.type == Lexeme.Type.GreaterEqual then
+		return AstExprBinary.Op.CompareGe
+	elseif l.type == Lexeme.Type.ReservedAnd then
+		return AstExprBinary.Op.And
+	elseif l.type == Lexeme.Type.ReservedOr then
+		return AstExprBinary.Op.Or
+	else
+		return nil
 	end
 end
 
@@ -3404,7 +3404,7 @@ function prototype.reportMissingTypeError(self: Parser, parseErrorLocation: Loca
 end
 
 --[=[
-	@within Prototype
+	@within Parser
 	@method nextLexeme
 
 	Computes the next lexeme. If specified, the parser will collect [comments](#Comment) and [hot comments](#HotComment).

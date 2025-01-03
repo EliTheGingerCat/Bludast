@@ -16,6 +16,7 @@
 	// 	"description": "Log output to console"
 	// }
 	"AST class": {
+		// Looks like bro uses 4 spaces instead of tab even though I used \t 😾
 		"scope": "luau",
 		"prefix": "AST class",
 		"description": "A class for the parser to use when converting lexemes to an abstract syntax tree.",

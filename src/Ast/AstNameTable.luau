@@ -6,14 +6,14 @@ type AstName = AstName.AstName
 type Pair<T1, T2> = Pair.Pair<T1, T2>
 
 --[=[
-	@class Entry
+	@class AstNameTable_Entry
 	Struct from `/Ast/src/Lexer.cpp > AstNameTable`.
 ]=]
 local Entry = {}
 
 export type Entry = {
 	--[=[
-		@within Parser::EntryHash
+		@within AstNameTable_Entry
 		@prop value AstName
 		@readonly
 		@since v0.1.0
@@ -21,7 +21,7 @@ export type Entry = {
 	value: AstName,
 
 	--[=[
-		@within Parser::EntryHash
+		@within AstNameTable_Entry
 		@prop length number
 		@readonly
 		@since v0.1.0
@@ -29,7 +29,7 @@ export type Entry = {
 	length: number,
 
 	--[=[
-		@within Parser::EntryHash
+		@within AstNameTable_Entry
 		@prop type number
 		@readonly
 		@since v0.1.0
@@ -40,7 +40,7 @@ export type Entry = {
 }
 
 --[=[
-	@within Parser::EntryHash
+	@within AstNameTable_Entry
 	@function new
 	@param value AstName
 	@param length number
@@ -56,7 +56,7 @@ function Entry.new(value: AstName, length: number, typeLex: number): Entry
 end
 
 --[=[
-	@within Parser::EntryHash
+	@within AstNameTable_Entry
 	@method __eq
 	@param other Entry
 	@return boolean

@@ -9,21 +9,21 @@ type Location = Location.Location
 
 export type Item = {
 	--[=[
-		@within AstExprTable::Item
+		@within AstExprTable_Item
 		@prop kind number
 
-		Corresponds to (kind enum)[AstExprTable::Item::Kind].
+		Corresponds to (kind enum)[AstExprTable_Item::Kind].
 	]=]
 	kind: number,
 
 	--[=[
-		@within AstExprTable::Item
+		@within AstExprTable_Item
 		@prop key AstExpr?
 	]=]
 	key: AstExpr?,
 
 	--[=[
-		@within AstExprTable::Item
+		@within AstExprTable_Item
 		@prop value AstExpr?
 	]=]
 	value: AstExpr
@@ -34,15 +34,15 @@ export type AstExprTable = AstExpr & {
 }
 
 --[=[
-	@class AstExprTable::Item
+	@class AstExprTable_Item
 ]=]
 local Item = {
 	--[=[
-		@class AstExprTable::Item::Kind
+		@class AstExprTable_Item::Kind
 	]=]
 	Kind = {
 		--[=[
-			@within AstExprTable::Item::Kind
+			@within AstExprTable_Item::Kind
 			@prop List 0
 			@readonly
 			@since v0.1.0
@@ -52,7 +52,7 @@ local Item = {
 		List = 0,
 
 		--[=[
-			@within AstExprTable::Item::Kind
+			@within AstExprTable_Item::Kind
 			@prop Record 1
 			@readonly
 			@since v0.1.0
@@ -62,7 +62,7 @@ local Item = {
 		Record = 1,
 
 		--[=[
-			@within AstExprTable::Item::Kind
+			@within AstExprTable_Item::Kind
 			@prop General 2
 			@readonly
 			@since v0.1.0
@@ -74,12 +74,12 @@ local Item = {
 }
 
 --[=[
-	@within AstExprTable::Item
+	@within AstExprTable_Item
 	@function new
 	@param kind number
 	@param key AstExpr?
 	@param value AstExpr
-	@return AstExprTable::Item
+	@return AstExprTable_Item
 	@since v0.1.0
 ]=]
 function Item.new(kind: number, key: AstExpr?, value: AstExpr): Item

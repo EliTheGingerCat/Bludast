@@ -21,15 +21,15 @@ export type AstStatLocalFunction = AstStat & {
 
 	Class from [`/Ast/src/Ast.cpp`](https://github.com/luau-lang/luau/blob/7d4033071abebe09971b410d362c00ffb3084afb/Ast/src/Ast.cpp#L663-L674) and [`/Ast/include/Luau/Ast.h`](https://github.com/luau-lang/luau/blob/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Ast.h#L793-L804).
 
-    Represents:
+	Represents:
 
-    ```lua
+	```lua
 
-    local function name()
-        -- body
-    end
+	local function name()
+		-- body
+	end
 
-    ```
+	```
 ]=]
 local AstStatLocalFunction = {
 	ClassIndex = AstClassIndex(),
@@ -40,16 +40,16 @@ local metatable = {__index = prototype}
 
 function AstStatLocalFunction.new(location: Location, name: AstLocal, func: AstExprFunction): AstStatLocalFunction
 	local self = AstStat.interface.new(AstStatLocalFunction.ClassIndex, location) :: AstStatLocalFunction
-    self.name = name
-    self.func = func
-    setmetatable(self, metatable)
-    return self
+	self.name = name
+	self.func = func
+	setmetatable(self, metatable)
+	return self
 end
 
 function prototype.visit(self: AstStatLocalFunction, visitor: AstVisitor): ()
-    if visitor:visit(self) then
-        self.func:visit(visitor)
-    end
+	if visitor:visit(self) then
+		self.func:visit(visitor)
+	end
 end
 
 return AstStatLocalFunction

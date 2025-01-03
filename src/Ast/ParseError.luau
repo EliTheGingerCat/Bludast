@@ -61,16 +61,6 @@ end
 
 --[=[
 	@within ParseError
-	@method what
-	@return string
-	@since v0.1.0
-
-	Same as ParseError:getMessage() though in the C++ version it returns the message as a C string.
-]=]
-prototype.what = prototype.getMessage
-
---[=[
-	@within ParseError
 	@method getLocation
 	@return Location
 	@since v0.1.0
@@ -88,5 +78,15 @@ end
 function prototype.getMessage(self: ParseError): string
 	return self.message
 end
+
+--[=[
+	@within ParseError
+	@method what
+	@return string
+	@since v0.1.0
+
+	Same as ParseError:getMessage() though in the C++ version it returns the message as a C string.
+]=]
+prototype.what = prototype.getMessage
 
 return ParseError

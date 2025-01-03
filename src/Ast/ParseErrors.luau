@@ -1,11 +1,14 @@
 local ParseError = require("./ParseError")
 local Vector = require("./Vector")
 
+type ParseError = ParseError.ParseError
+type Vector<T> = Vector.Vector<T>
+
 local ParseErrors = {}
 local prototype = {}
 local metatable = {__index = prototype}
 
-function ParseErrors.new(errors: Vector.Vector<ParseError.ParseError>)
+function ParseErrors.new(errors: Vector<ParseError>)
 	local self = setmetatable({
 		errors = errors
 	}, metatable)
@@ -26,7 +29,7 @@ function prototype.what(self: ParseErrors): string
 	return self.message
 end
 
-function prototype.getErrors(self: ParseErrors): Vector.Vector<ParseError.ParseError>
+function prototype.getErrors(self: ParseErrors): Vector<ParseError>
 	return self.errors
 end
 
