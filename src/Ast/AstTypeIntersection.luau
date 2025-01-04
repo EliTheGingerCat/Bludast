@@ -13,7 +13,6 @@ export type AstTypeIntersection = AstType & {
 
 --[=[
 	@class AstTypeIntersection
-	@tag class
 ]=]
 local AstTypeIntersection = {
 	ClassIndex = AstClassIndex(),

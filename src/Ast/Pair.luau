@@ -1,14 +1,9 @@
 --[=[
 	@class Pair
-	@tag C++
 
-	Class template from C++ std.
-
-	<T1, T2>
+	Class template from [C++ std](https://en.cppreference.com/w/cpp/utility/pair).
 
 	Holds two values. They can be of different types. 
-
-	https://en.cppreference.com/w/cpp/utility/pair
 ]=]
 local Pair = {}
 
@@ -32,11 +27,7 @@ export type Pair<T1, T2> = {
 
 --[=[
 	@within Pair
-	@function new
-	@param o1 T1
-	@param o2 T2
-	@return Pair<T1, T2>
-	<T1, T2>
+	@since v0.1.0
 ]=]
 function Pair.new<T1, T2>(o1: T1, o2: T2): Pair<T1, T2>
 	return {

@@ -92,7 +92,7 @@ function prototype.visit(self: AstTypeFunction, visitor: AstVisitor): ()
 end
 
 function prototype.isCheckedFunction(self: AstTypeFunction): boolean
-	assert(FastFlags.LuauAttributeSyntax)
+	assert(FastVariables.LuauAttributeSyntax)
 
 	for _, attr in self.attributes do
 		if attr.type == AstAttr.Type.Checked then

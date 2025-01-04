@@ -1,12 +1,11 @@
 --[=[
-	@class ConstantnumberParseResult
-	@tag enum class
+	@class ConstantNumberParseResult
 
 	Enum class from [`/Ast/include/Luau/Ast.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Ast.h#L290-L297).
 ]=]
 return {
 	--[=[
-		@within ConstantnumberParseResult
+		@within ConstantNumberParseResult
 		@prop Ok 0
 		@readonly
 		@since v0.1.0
@@ -14,7 +13,7 @@ return {
 	Ok = 0,
 
 	--[=[
-		@within ConstantnumberParseResult
+		@within ConstantNumberParseResult
 		@prop Imprecise 1
 		@readonly
 		@since v0.1.0
@@ -22,7 +21,7 @@ return {
 	Imprecise = 1,
 
 	--[=[
-		@within ConstantnumberParseResult
+		@within ConstantNumberParseResult
 		@prop Malformed 2
 		@readonly
 		@since v0.1.0
@@ -30,7 +29,7 @@ return {
 	Malformed = 2,
 
 	--[=[
-		@within ConstantnumberParseResult
+		@within ConstantNumberParseResult
 		@prop BinOverflow 3
 		@readonly
 		@since v0.1.0
@@ -38,7 +37,7 @@ return {
 	BinOverflow = 3,
 
 	--[=[
-		@within ConstantnumberParseResult
+		@within ConstantNumberParseResult
 		@prop HexOverflow 4
 		@readonly
 		@since v0.1.0

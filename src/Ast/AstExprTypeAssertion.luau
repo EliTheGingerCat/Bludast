@@ -16,7 +16,6 @@ export type AstExprTypeAssertion = AstExpr & {
 
 --[=[
 	@class AstExprTypeAssertion
-	@tag class
 ]=]
 local AstExprTypeAssertion = {
 	ClassIndex = AstClassIndex(),

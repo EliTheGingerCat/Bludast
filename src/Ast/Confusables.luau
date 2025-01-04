@@ -1,5 +1,6 @@
 --[=[
 	@class Confusables
+
 	Primarily provides a function from `root/Ast/src/Confusables.cpp`.
 ]=]
 local Confusables = {}
@@ -10,10 +11,11 @@ local Confusables = {}
 	@readonly
 	@private
 	@since v0.1.0
-	Not going to display the whole list here 🐱.  
-	Derived from http://www.unicode.org/Public/security/10.0.0/confusables.txt.
+
+	Not going to display the whole list here - it has 1786 items 🐱
+
+	Derived from http://www.unicode.org/Public/security/10.0.0/confusables.txt. Sorted by codepoint.
 ]=]
--- Derived from http://www.unicode.org/Public/security/10.0.0/confusables.txt; sorted by codepoint
 Confusables.list = {
 	[34] = "\"",      -- MA#* ( " → '' ) QUOTATION MARK → APOSTROPHE, APOSTROPHE# # Converted to a quote.
 	[48] = "O",       -- MA# ( 0 → O ) DIGIT ZERO → LATIN CAPITAL LETTER O#
@@ -1805,10 +1807,9 @@ Confusables.list = {
 
 --[=[
 	@within Confusables
-	@function findConfusable
-	@param codepoint number
-	@return string?
-	Returns the string that the developer might have gotten confused with.
+	@since v0.1.0
+
+	Searches through the [list](Confusables#list) to find a string that the developer might have gotten confused with.
 ]=]
 function Confusables.findConfusable(codepoint: number): string?
 	return Confusables.list[codepoint]

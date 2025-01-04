@@ -122,13 +122,14 @@ type Vector<T> = Vector.Vector<T>
 
 --[=[
 	@class Parser
+	@__index prototype
 
 	Class from [`/Ast/src/Parser.cpp`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/src/Parser.cpp#L155-L3337) and [`/Ast/include/Luau/Parser.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Parser.h#L54-L429).
 
 	Converts lexemes to an abstract syntax tree.
 ]=]
-local Parser = {}
 local prototype = {}
+local Parser = {prototype = prototype}
 local metatable = {__index = prototype}
 
 --[=[
@@ -238,7 +239,7 @@ end
 --[=[
 	@class Parser_Name
 
-	Struct from [`/Ast/include/Luau/Parser.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Parser.h#L358-368).
+	Struct from [`/Ast/include/Luau/Parser.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Parser.h#L358-L368).
 ]=]
 local Name = {}
 
@@ -371,12 +372,9 @@ end
 
 --[=[
 	@within Parser
-	@function parse
-	@param buffer string
-	@param bufferSize number
-	@param names AstNameTalble
-	@param options ParseOptions
-	@return ParseResult
+	@since v0.1.0
+	
+	The primary function of this module which creates a parser and returns its results in a nice table for you.
 ]=]
 function Parser.parse(buffer: string, bufferSize: number, names: AstNameTable, options: ParseOptions): ParseResult
 	TimeTrace.LUAU_TIMETRACE_SCOPE("Parser::parse", "Parser")
@@ -390,9 +388,14 @@ function Parser.parse(buffer: string, bufferSize: number, names: AstNameTable, o
 
 			return ParseResult.new(root, lines, p.hotcomments, p.parseErrors, p.commentLocations)
 		end,
-		function(err: ParseError)
+		function(err: ParseResult | string)
 			-- when catching a fatal error, append it to the list of non-fatal errors and return
-			p.parseErrors:push_back(err)
+			if type(err) == "string" then
+				-- Eli: Runtime error.
+				p.parseErrors:push_back(ParseError.new(Location.new(), err))
+			else
+				p.parseErrors:push_back(err)
+			end
 			
 			return ParseResult.new(nil, 0, nil, p.parseErrors)
 		end
@@ -404,15 +407,10 @@ local kParseNameError = "%error-id%"
 
 --[=[
 	@within Parser
-	@function new
-	@param buffer string
-	@param bufferSize number
-	@param names AstNameTable
-	@param options ParseOptions
-	@return Parser
+	@private
 	@since v0.1.0
 ]=]
-function Parser.new(buffer: string, bufferSize: number, names: AstNameTable.AstNameTable, options: ParseOptions)
+function Parser.new(buffer: string, bufferSize: number, names: AstNameTable, options: ParseOptions)
 	local self = setmetatable({
 		options = options,
 
@@ -496,9 +494,7 @@ type Parser = typeof(Parser.new(...))
 
 --[=[
 	@within Parser
-	@method blockFollow
-	@param l Lexeme
-	@return boolean
+	@private
 	@since v0.1.0
 ]=]
 function prototype.blockFollow(self: Parser, l: Lexeme.Lexeme): boolean
@@ -510,6 +506,11 @@ function prototype.blockFollow(self: Parser, l: Lexeme.Lexeme): boolean
 		or l.type == Lexeme.Type.ReservedUntil
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseChunk(self: Parser): AstStatBlock
 	local result = self:parseBlock()
 
@@ -522,6 +523,11 @@ end
 
 -- chunk ::= {stat [`;']} [laststat [`;']]
 -- block ::= chunk
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseBlock(self: Parser): AstStatBlock
 	local localsBegin = self:saveLocals()
 
@@ -532,10 +538,21 @@ function prototype.parseBlock(self: Parser): AstStatBlock
 	return result
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+	@tag local
+]=]
 local function isStatLast(stat: AstStat): boolean
 	return stat:is(AstStatBreak) or stat:is(AstStatContinue) or stat:is(AstStatReturn)
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseBlockNoScope(self: Parser): AstStatBlock
 	local body = TempVector.new(self.scratchStat)
 
@@ -564,7 +581,7 @@ function prototype.parseBlockNoScope(self: Parser): AstStatBlock
 
 	local location = Location.new(prevPosition, self.lexer:current().location.begin)
 
-	local result = AstStatBlock.new(location, body:copy_data())
+	local result = AstStatBlock.new(location, self:copy(body))
 
 	body:destroy()
 
@@ -586,6 +603,11 @@ end
 -- local attributes function Name funcbody |
 -- local namelist [`=' explist]
 -- laststat ::= return [explist] | break
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseStat(self: Parser): AstStat
 	-- guess the type from the token type
 	local case = self.lexer:current().type
@@ -664,6 +686,11 @@ function prototype.parseStat(self: Parser): AstStat
 end
 
 -- if exp then block {elseif exp then block} [else block] end
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseIf(self: Parser): AstStat
 	local start = self.lexer:current().location
 
@@ -722,6 +749,11 @@ function prototype.parseIf(self: Parser): AstStat
 end
 
 -- while exp do block end
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseWhile(self: Parser): AstStat
 	local start = self.lexer:current().location
 
@@ -747,6 +779,11 @@ function prototype.parseWhile(self: Parser): AstStat
 end
 
 -- repeat block until exp
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseRepeat(self: Parser): AstStat
 	local start = self.lexer:current().location
 
@@ -772,6 +809,11 @@ function prototype.parseRepeat(self: Parser): AstStat
 end
 
 -- do block end
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseDo(self: Parser): AstStat
 	local start = self.lexer:current().location
 
@@ -788,6 +830,11 @@ function prototype.parseDo(self: Parser): AstStat
 end
 
 -- break
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseBreak(self: Parser): AstStat
 	local start = self.lexer:current().location
 
@@ -801,6 +848,11 @@ function prototype.parseBreak(self: Parser): AstStat
 end
 
 -- continue
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseContinue(self: Parser, start: Location): AstStat
 	if self.functionStack:back().loopDepth == 0 then
 		return self:reportStatError(start, {}, AstStatContinue.new(start), "continue statement must be inside a loop")
@@ -813,6 +865,11 @@ end
 
 -- for binding `=' exp `,' exp [`,' exp] do block end |
 -- for bindinglist in explist do block end |
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseFor(self: Parser): AstStat
 	local start = self.lexer:current().location
 
@@ -898,7 +955,7 @@ function prototype.parseFor(self: Parser): AstStat
 		local hasEnd = self:expectMatchEndAndConsume(Lexeme.Type.ReservedEnd, matchDo)
 		body.hasEnd = hasEnd
 
-		local result = AstStatForIn.new(Location.new(start, endLocation), vars:copy_data(), values:copy_data(), body, hasIn, inLocation, hasDo, matchDo.location)
+		local result = AstStatForIn.new(Location.new(start, endLocation), self:copy(vars), self:copy(values), body, hasIn, inLocation, hasDo, matchDo.location)
 
 		names:destroy()
 		values:destroy()
@@ -909,6 +966,11 @@ function prototype.parseFor(self: Parser): AstStat
 end
 
 -- funcname ::= Name {`.' Name} [`:' Name]
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseFunctionName(self: Parser, start: Location): {hasself: boolean, debugname: AstName, expr: AstExpr}
 	local hasself = false
 	local debugname: AstName
@@ -962,6 +1024,11 @@ function prototype.parseFunctionName(self: Parser, start: Location): {hasself: b
 end
 
 -- function funcname funcbody
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseFunctionStat(self: Parser, attributes: {AstAttr}): AstStat
 	local start = self.lexer:current().location
 
@@ -982,6 +1049,11 @@ function prototype.parseFunctionStat(self: Parser, attributes: {AstAttr}): AstSt
 	return AstStatFunction.new(Location.new(start, body.location), expr, body)
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.validateAttribute(self: Parser, attributeName: string, attributes: TempVector<AstAttr>): Pair<boolean, number>
 	assert(FastVariables.LuauAttributeSyntax)
 
@@ -1023,6 +1095,11 @@ function prototype.validateAttribute(self: Parser, attributeName: string, attrib
 end
 
 -- attribute ::= '@' NAME
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseAttribute(self: Parser, attributes: TempVector<AstAttr>): ()
 	assert(FastVariables.LuauAttributeSyntax)
 
@@ -1045,6 +1122,11 @@ function prototype.parseAttribute(self: Parser, attributes: TempVector<AstAttr>)
 end
 
 -- attributes ::= {attribute}
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseAttributes(self: Parser): {AstAttr}
 	assert(FastVariables.LuauAttributeSyntax)
 
@@ -1058,7 +1140,7 @@ function prototype.parseAttributes(self: Parser): {AstAttr}
 		self:parseAttribute(attributes)
 	end
 
-	local result = attributes:copy_data()
+	local result = self:copy(attributes)
 
 	attributes:destroy()
 
@@ -1069,6 +1151,11 @@ end
 -- attributes function funcname funcbody
 -- attributes `declare function' Name`(' [parlist] `)' [`:` Type]
 -- declare Name '{' Name ':' attributes `(' [parlist] `)' [`:` Type] '}'
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseAttributeStat(self: Parser): AstStat
 	assert(FastVariables.LuauAttributeSyntax)
 
@@ -1092,6 +1179,11 @@ end
 
 -- local function Name funcbody |
 -- local bindinglist [`=' explist]
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseLocal(self: Parser, attributes: {AstAttr}): AstStat
 	local start = self.lexer:current().location
 
@@ -1152,7 +1244,7 @@ function prototype.parseLocal(self: Parser, attributes: {AstAttr}): AstStat
 
 		local endLocation = if values:empty() then self.lexer:previousLocation() else values:back().location
 
-		local result = AstStatLocal.new(Location.new(start, endLocation), vars:copy_data(), values:copy_data(), equalsSignLocation)
+		local result = AstStatLocal.new(Location.new(start, endLocation), self:copy(vars), self:copy(values), equalsSignLocation)
 
 		names:destroy()
 		vars:destroy()
@@ -1163,6 +1255,11 @@ function prototype.parseLocal(self: Parser, attributes: {AstAttr}): AstStat
 end
 
 -- return [explist]
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseReturn(self: Parser): AstStat
 	local start = self.lexer:current().location
 
@@ -1176,7 +1273,7 @@ function prototype.parseReturn(self: Parser): AstStat
 
 	local endLocation = if list:empty() then start else list:back().location
 
-	local result = AstStatReturn.new(Location.new(start, endLocation), list:copy_data())
+	local result = AstStatReturn.new(Location.new(start, endLocation), self:copy(list))
 
 	list:destroy()
 
@@ -1184,6 +1281,11 @@ function prototype.parseReturn(self: Parser): AstStat
 end
 
 -- type Name [`<' varlist `>'] `=' Type
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseTypeAlias(self: Parser, start: Location.Location, exported: boolean): AstStat
 	-- note: `type` token is already parsed for us, so we just need to parse the rest
 
@@ -1205,6 +1307,11 @@ function prototype.parseTypeAlias(self: Parser, start: Location.Location, export
 	return AstStatTypeAlias.new(Location.new(start, typeAst.location), name.name, name.location, generics, genericPacks, typeAst, exported)
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseDeclaredClassMethod(self: Parser): AstDeclaredClassProp
 	self:nextLexeme()
 	local start = self.lexer:current().location
@@ -1256,7 +1363,7 @@ function prototype.parseDeclaredClassMethod(self: Parser): AstDeclaredClassProp
 		self:report(start, "All declaration parameters aside from 'self' must be annotated")
 	end
 
-	local fnType = AstTypeFunction.new(Location.new(start, endLocation), generics, genericPacks, AstTypeList.new(vars:copy_data(), varargAnnotation), varNames:copy_data(), retTypes)
+	local fnType = AstTypeFunction.new(Location.new(start, endLocation), generics, genericPacks, AstTypeList.new(self:copy(vars), varargAnnotation), self:copy(varNames), retTypes)
 
 	local result = AstDeclaredClassProp.new(fnName.name, fnType, true)
 
@@ -1267,6 +1374,11 @@ function prototype.parseDeclaredClassMethod(self: Parser): AstDeclaredClassProp
 	return result
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseDeclaration(self: Parser, start: Location.Location, attributes: {AstAttr}): AstStat
 	-- `declare` token is already parsed at this point
 
@@ -1325,7 +1437,7 @@ function prototype.parseDeclaration(self: Parser, start: Location.Location, attr
 			return self:reportStatError(Location.new(start, endLocation), {}, {}, "All declaration parameters must be annotated")
 		end
 
-		local result = AstStatDeclareFunction.new(Location.new(start, endLocation), attributes, globalName.name, generics, genericPacks, AstTypeList.new(vars:copy_data(), varargAnnotation), varNames:copy_data(), retTypes)
+		local result = AstStatDeclareFunction.new(Location.new(start, endLocation), attributes, globalName.name, generics, genericPacks, AstTypeList.new(self:copy(vars), varargAnnotation), self:copy(varNames), retTypes)
 		
 		destroy(vectors)
 
@@ -1410,6 +1522,11 @@ local function isExprLValue(expr: AstExpr): boolean
 end
 
 -- varlist `=' explist
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseAssignment(self: Parser, initial: AstExpr): AstStat
 	if not isExprLValue(initial) then
 		initial = self:reportExprError(initial.location, {initial}, "Assigned expression must be a variable or a field")
@@ -1444,6 +1561,11 @@ function prototype.parseAssignment(self: Parser, initial: AstExpr): AstStat
 end
 
 -- var [`+=' | `-=' | `*=' | `/=' | `%=' | `^=' | `..='] exp
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseCompoundAssignment(self: Parser, initial: AstExpr, op: number): AstStat
 	if not isExprLValue(initial) then
 		initial = self:reportExprError(initial.location, {initial}, "Assigned expression must be a variable or a field")
@@ -1456,6 +1578,11 @@ function prototype.parseCompoundAssignment(self: Parser, initial: AstExpr, op: n
 	return AstStatCompoundAssign.new(Location.new(initial.location, value.location), op, initial, value)
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.prepareFunctionArguments(self: Parser, start: Location, hasself: boolean, args: TempVector<Binding>): Pair<AstLocal, {AstLocal}>
 	local selfLocal: AstLocal
 
@@ -1478,6 +1605,11 @@ end
 
 -- funcbody ::= `(' [parlist] `)' [`:' ReturnType] block end
 -- parlist ::= bindinglist [`,' `...'] | `...'
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseFunctionBody(self: Parser, hasself: boolean, matchFunction: Lexeme.Lexeme, debugname: AstName, localName: Name?, attributes: {AstAttr}): Pair<AstExprFunction, AstLocal>
 	local start = matchFunction.location
 
@@ -1551,6 +1683,11 @@ function prototype.parseFunctionBody(self: Parser, hasself: boolean, matchFuncti
 end
 
 -- explist ::= {exp `,'} exp
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseExprList(self: Parser, result: TempVector<AstExpr>): ()
 	result:push_back(self:parseExpr())
 
@@ -1566,6 +1703,11 @@ function prototype.parseExprList(self: Parser, result: TempVector<AstExpr>): ()
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseBinding(self: Parser): Binding
 	local name = self:parseNameOpt("variable name")
 
@@ -1580,6 +1722,11 @@ function prototype.parseBinding(self: Parser): Binding
 end
 
 -- bindinglist ::= (binding | `...') [`,' bindinglist]
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseBindingList(self: Parser, result: TempVector<Binding>, allowDot3: boolean?): {
 	vararg: boolean,
 	varargLocation: Location,
@@ -1618,6 +1765,11 @@ function prototype.parseBindingList(self: Parser, result: TempVector<Binding>, a
 	}
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseOptionalType(self: Parser): AstType?
 	if self.lexer:current().type == (":"):byte() then
 		self:nextLexeme()
@@ -1628,6 +1780,11 @@ function prototype.parseOptionalType(self: Parser): AstType?
 end
 
 -- TypeList ::= Type [`,' TypeList] | ...Type
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseTypeList(self: Parser, result: TempVector<AstType>, resultNames: TempVector<AstArgumentName?>): AstType?
 	while true do
 		if shouldParseTypePack(self.lexer) then
@@ -1665,6 +1822,11 @@ function prototype.parseTypeList(self: Parser, result: TempVector<AstType>, resu
 	return nil
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseOptionalReturnType(self: Parser): AstTypeList?
 	if self.lexer:current().type == (":"):byte() or self.lexer:current().type == Lexeme.Type.SkinnyArrow then
 		if self.lexer:current().type == Lexeme.Type.SkinnyArrow then
@@ -1696,6 +1858,11 @@ function prototype.parseOptionalReturnType(self: Parser): AstTypeList?
 end
 
 -- ReturnType ::= Type | `(' TypeList `)'
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseReturnType(self: Parser): Pair<Location, AstTypeList>
 	self:incrementRecursionCounter("type annotation")
 
@@ -1776,6 +1943,11 @@ function prototype.parseReturnType(self: Parser): Pair<Location, AstTypeList>
 end
 
 -- TableIndexer ::= `[' Type `]' `:' Type
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseTableIndexer(self: Parser, access: number, accessLocation: Location?): AstTableIndexer
 	local begin = self.lexer:current()
 	self:nextLexeme() -- [
@@ -1795,6 +1967,11 @@ end
 -- TablePropOrIndexer ::= TableProp | TableIndexer
 -- PropList ::= TablePropOrIndexer {fieldsep TablePropOrIndexer} [fieldsep]
 -- TableType ::= `{' PropList `}'
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseTableType(self: Parser, inDeclarationContext: boolean): AstType
 	self:incrementRecursionCounter("type annotation")
 
@@ -1897,6 +2074,11 @@ end
 
 -- ReturnType ::= Type | `(' TypeList `)'
 -- FunctionType ::= [`<' varlist `>'] `(' [TypeList] `)' `->` ReturnType
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseFunctionType(self: Parser, allowPack: boolean, attributes: {AstAttr}): AstTypeOrPack
 	self:incrementRecursionCounter("type annotation")
 
@@ -1966,6 +2148,11 @@ function prototype.parseFunctionType(self: Parser, allowPack: boolean, attribute
 	return result
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseFunctionTypeTail(self: Parser, begin: Lexeme, attributes: {AstAttr}, generics: {AstGenericType}, genericPacks: {AstGenericTypePack}, params: {AstType}, paramNames: {AstArgumentName?}, varargAnnotation: AstTypePack): AstType
 	self:incrementRecursionCounter("type annotation")
 
@@ -1995,6 +2182,11 @@ end
 --      `{' [PropList] `}' |
 --      `(' [TypeList] `)' `->` ReturnType
 --      `typeof` Type
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseTypeSuffix(self: Parser, typeAst: AstType, begin: Location.Location): AstType
 	local parts = TempVector.new(self.scratchType)
 
@@ -2084,6 +2276,11 @@ function prototype.parseTypeSuffix(self: Parser, typeAst: AstType, begin: Locati
 	ParseError.raise(begin, "Composite type was not an intersection or union.")
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseTypeOrPack(self: Parser): AstTypeOrPack
 	local oldRecursionCount = self.recursionCounter
 	-- recursion counter is incremented in parseSimpleType
@@ -2104,6 +2301,11 @@ function prototype.parseTypeOrPack(self: Parser): AstTypeOrPack
 	return AstTypeOrPack.new(self:parseTypeSuffix(typeAst, begin), nil)
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseType(self: Parser, inDeclarationContext: boolean?): AstType
 	local oldRecursionCount = self.recursionCounter
 	-- recursion counter is incremented in parseSimpleType and/or parseTypeSuffix
@@ -2134,7 +2336,12 @@ end
 
 -- Type ::= nil | Name[`.' Name] [ `<' Type [`,' ...] `>' ] | `typeof' `(' expr `)' | `{' [PropList] `}'
 --   | [`<' varlist `>'] `(' [TypeList] `)' `->` ReturnType
-function prototype.parseSimpleType(self: Parser, allowPack: boolean, inDeclarationContext: boolean): AstTypeOrPack
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
+function prototype.parseSimpleType(self: Parser, allowPack: boolean, inDeclarationContext: boolean?): AstTypeOrPack
 	self:incrementRecursionCounter("type annotation")
 
 	local start = self.lexer:current().location
@@ -2227,6 +2434,11 @@ function prototype.parseSimpleType(self: Parser, allowPack: boolean, inDeclarati
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseVariadicArgumentTypePack(self: Parser): AstTypePack
 	-- Generic: a...
 	if self.lexer:current().type == Lexeme.Type.Name and self.lexer:lookahead().type == Lexeme.Type.Dot3 then
@@ -2243,6 +2455,11 @@ function prototype.parseVariadicArgumentTypePack(self: Parser): AstTypePack
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseTypePack(self: Parser): AstTypePack
 	-- Variadic: ...T
 	if self.lexer:current().type == Lexeme.Type.Dot3 then
@@ -2264,6 +2481,11 @@ function prototype.parseTypePack(self: Parser): AstTypePack
 	error("parseTypePack can't be called if shouldParseTypePack() returned false")
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseUnaryOp(self: Parser, l: Lexeme): number?
 	if l.type == Lexeme.Type.ReservedNot then
 		return AstExprUnary.Op.Not
@@ -2276,6 +2498,11 @@ function prototype.parseUnaryOp(self: Parser, l: Lexeme): number?
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseBinaryOp(self: Parser, l: Lexeme): number?
 	if l.type == ("+"):byte() then
 		return AstExprBinary.Op.Add
@@ -2314,6 +2541,11 @@ function prototype.parseBinaryOp(self: Parser, l: Lexeme): number?
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseCompoundOp(self: Parser, l: Lexeme): number?
 	if l.type == Lexeme.Type.AddAssign then
 		return AstExprBinary.Op.Add
@@ -2336,6 +2568,11 @@ function prototype.parseCompoundOp(self: Parser, l: Lexeme): number?
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.checkUnaryConfusables(self: Parser): number?
 	local curr = self.lexer:current()
 
@@ -2355,6 +2592,11 @@ function prototype.checkUnaryConfusables(self: Parser): number?
 	return nil
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.checkBinaryConfusables(self: Parser, binaryPriority: {BinaryOpPriority}, limit: number): number?
 	local curr = self.lexer:current()
 	-- early-out: need to check if this is a possible confusable quickly
@@ -2394,6 +2636,11 @@ local binaryPriority: {BinaryOpPriority} = {}
 
 -- subexpr -> (asexp | unop subexpr) { binop subexpr }
 -- where `binop' is any binary operator with a priority higher than `limit'
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseExpr(self: Parser, limit: number?): AstExpr
 	if limit == nil then
 		limit = 0
@@ -2459,6 +2706,11 @@ function prototype.parseExpr(self: Parser, limit: number?): AstExpr
 end
 
 -- NAME
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseNameExpr(self: Parser, context: string): AstExpr
 	local name = self:parseNameOpt(context)
 
@@ -2478,6 +2730,11 @@ function prototype.parseNameExpr(self: Parser, context: string): AstExpr
 end
 
 -- prefixexp -> NAME | '(' expr ')'
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parsePrefixExpr(self: Parser): AstExpr
 	if self.lexer:current().type == ("("):byte() then
 		local start = self.lexer:current().location.begin
@@ -2506,6 +2763,11 @@ function prototype.parsePrefixExpr(self: Parser): AstExpr
 end
 
 -- primaryexp -> prefixexp { `.' NAME | `[' exp `]' | `:' NAME funcargs | funcargs }
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parsePrimaryExpr(self: Parser, asStatement: boolean): AstExpr
 	local start = self.lexer:current().location.begin
 
@@ -2564,6 +2826,11 @@ function prototype.parsePrimaryExpr(self: Parser, asStatement: boolean): AstExpr
 end
 
 -- asexp -> simpleexp [`::' Type]
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseAssertionExpr(self: Parser): AstExpr
 	local start = self.lexer:current().location
 	local expr = self:parseSimpleExpr()
@@ -2579,11 +2846,8 @@ end
 
 --[=[
 	@within Parser
-	@function parseInteger
-	@param result number
-	@param data string
-	@param base number
-	@return number
+	@private
+	@since v0.1.0
 
 	Due to Luau limitations, this function is less accurate. It *is* possible to make it fully accurate with some sort of `BigNumber`, but I doubt this is necessary.
 ]=]
@@ -2645,6 +2909,11 @@ local function parseDouble(data: string): {
 end
 
 -- simpleexp -> NUMBER | STRING | NIL | true | false | ... | constructor | [attributes] FUNCTION body | primaryexp
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseSimpleExpr(self: Parser): AstExpr
 	local start = self.lexer:current().location
 
@@ -2707,6 +2976,11 @@ function prototype.parseSimpleExpr(self: Parser): AstExpr
 end
 
 -- args ::=  `(' [explist] `)' | tableconstructor | String
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseFunctionArgs(self: Parser, func: AstExpr, isSelf: boolean): AstExpr
 	if self.lexer:current().type == ("("):byte() then
 		local argStart = self.lexer:current().location.finish
@@ -2749,6 +3023,11 @@ function prototype.parseFunctionArgs(self: Parser, func: AstExpr, isSelf: boolea
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.reportFunctionArgsError(self: Parser, func: AstExpr, isSelf: boolean): AstExpr
 	if isSelf and self.lexer:current().location.begin.line ~= func.location.finish.line then
 		return self:reportExprError(func.location, {func}, "Expected function call arguments after '('")
@@ -2757,6 +3036,11 @@ function prototype.reportFunctionArgsError(self: Parser, func: AstExpr, isSelf: 
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.reportAmbiguousCallError(self: Parser): ()
 	self:report(self.lexer:current().location, "Ambiguous syntax: this looks like an argument list for a function call, but could also be a start of new statement; use ';' to separate statements")
 end
@@ -2765,6 +3049,11 @@ end
 -- fieldlist ::= field {fieldsep field} [fieldsep]
 -- field ::= `[' exp `]' `=' exp | Name `=' exp | exp
 -- fieldsep ::= `,' | `;'
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseTableConstructor(self: Parser): AstExpr
 	local items = TempVector.new(self.scratchItem)
 
@@ -2833,6 +3122,11 @@ function prototype.parseTableConstructor(self: Parser): AstExpr
 	return result
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseIfElseExpr(self: Parser): AstExpr
 	local hasElse = false
 	local start = self.lexer:current().location
@@ -2863,6 +3157,11 @@ function prototype.parseIfElseExpr(self: Parser): AstExpr
 end
 
 -- Name
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseNameOpt(self: Parser, context: string?): Name?
 	if self.lexer:current().type ~= Lexeme.Type.Name then
 		self:reportNameError(context)
@@ -2877,6 +3176,11 @@ function prototype.parseNameOpt(self: Parser, context: string?): Name?
 	return result
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseName(self: Parser, context: string?): Name
 	local name = self:parseNameOpt(context); if name then
 		return name
@@ -2888,6 +3192,11 @@ function prototype.parseName(self: Parser, context: string?): Name
 	return Name.new(self.nameError, location)
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseIndexName(self: Parser, context: string?, previous: Position): Name
 	local name = self:parseNameOpt(context); if name then
 		return name
@@ -2908,6 +3217,11 @@ function prototype.parseIndexName(self: Parser, context: string?, previous: Posi
 	return Name.new(self.nameError, location)
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseGenericTypeList(self: Parser, withDefaultValues: boolean): Pair<{AstGenericType}, {AstGenericTypePack}>
 	local names = TempVector.new(self.scratchGenericTypes)
 	local namePacks = TempVector.new(self.scratchGenericTypePacks)
@@ -2998,6 +3312,11 @@ function prototype.parseGenericTypeList(self: Parser, withDefaultValues: boolean
 	return Pair.new(generics, genericPacks)
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseTypeParams(self: Parser): {AstTypeOrPack}
 	local parameters = TempVector.new(self.scratchTypeOrPack)
 
@@ -3043,6 +3362,11 @@ function prototype.parseTypeParams(self: Parser): {AstTypeOrPack}
 	return result
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseCharArray(self: Parser): string?
 	assert(self.lexer:current().type == Lexeme.Type.QuotedString or self.lexer:current().type == Lexeme.Type.RawString or self.lexer:current().type == Lexeme.Type.InterpStringSimple)
 
@@ -3065,6 +3389,11 @@ function prototype.parseCharArray(self: Parser): string?
 	return value
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseString(self: Parser): AstExpr
 	local location = self.lexer:current().location
 	local value = self:parseCharArray(); if value then
@@ -3074,6 +3403,11 @@ function prototype.parseString(self: Parser): AstExpr
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseInterpString(self: Parser): AstExpr
 	local strings = TempVector.new(self.scratchString)
 	local expressions = TempVector.new(self.scratchExpr)
@@ -3115,11 +3449,11 @@ function prototype.parseInterpString(self: Parser): AstExpr
 		if case == Lexeme.Type.InterpStringMid or case == Lexeme.Type.InterpStringEnd then
 			errorWhileChecking = true
 			self:nextLexeme()
-			expressions:push_back(self:reportExprError(endLocation), nil, "Malformed interpolated string, expected expression inside '{}'")
+			expressions:push_back(self:reportExprError(endLocation, {}, "Malformed interpolated string, expected expression inside '{}'"))
 		elseif case == Lexeme.Type.BrokenString then
 			errorWhileChecking = true
 			self:nextLexeme()
-			expressions:push_back(self:reportExprError(endLocation, nil, "Malformed interpolated string; did you forget to add a '`'?"))
+			expressions:push_back(self:reportExprError(endLocation, {}, "Malformed interpolated string; did you forget to add a '`'?"))
 		else
 			expressions:push_back(self:parseExpr())
 		end
@@ -3153,6 +3487,11 @@ function prototype.parseInterpString(self: Parser): AstExpr
 	return AstExprInterpString.new(Location.new(startLocation, endLocation), stringsArray, expressionsArray)
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.parseNumber(self: Parser): AstExpr
 	local start = self.lexer:current().location
 
@@ -3175,6 +3514,11 @@ function prototype.parseNumber(self: Parser): AstExpr
 	return AstExprConstantNumber.new(start, assert(value), result)
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.pushLocal(self: Parser, binding: Binding): AstLocal
 	local name = binding.name
 	local localAst = self.localMap[name.name]
@@ -3186,10 +3530,20 @@ function prototype.pushLocal(self: Parser, binding: Binding): AstLocal
 	return localAst
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.saveLocals(self: Parser): number
 	return self.localStack:size()
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.restoreLocals(self: Parser, offset: number): ()
 	for i = self.localStack:size(), offset + 1, -1 do
 		local l = self.localStack:get(i)
@@ -3200,6 +3554,11 @@ function prototype.restoreLocals(self: Parser, offset: number): ()
 	self.localStack:resize(offset)
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.expectAndConsume(self: Parser, value: string | number, context: string?): boolean
 	local typeLex: number
 	if type(value) == "string" then
@@ -3225,6 +3584,11 @@ function prototype.expectAndConsume(self: Parser, value: string | number, contex
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.expectAndConsumeFail(self: Parser, typeLex: number, context: string?): ()
 	local typeString = Lexeme.new(Location.new(Position.new(0, 0), 0), typeLex):toString()
 	local currLexemeString = self.lexer:current():toString()
@@ -3236,6 +3600,11 @@ function prototype.expectAndConsumeFail(self: Parser, typeLex: number, context: 
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.expectMatchAndConsume(self: Parser, value: string, begin: Lexeme, searchForMissing: boolean?): boolean
 	local typeLex = value:byte()
 
@@ -3252,6 +3621,11 @@ function prototype.expectMatchAndConsume(self: Parser, value: string, begin: Lex
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.expectMatchAndConsumeRecover(self: Parser, value: string, begin: MatchLexeme, searchForMissing: boolean?): boolean
 	local typeLex = value:byte()
 
@@ -3287,6 +3661,11 @@ function prototype.expectMatchAndConsumeRecover(self: Parser, value: string, beg
 	return false
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.expectMatchAndConsumeFail(self: Parser, typeLex: number, begin: MatchLexeme, extra: string?): ()
 	local typeString = Lexeme.new(Location.new(Position.new(0, 0), 0), typeLex):toString()
 	local matchString = Lexeme.new(Location.new(Position.new(0, 0), 0), begin.type):toString()
@@ -3298,6 +3677,11 @@ function prototype.expectMatchAndConsumeFail(self: Parser, typeLex: number, begi
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.expectMatchEndAndConsume(self: Parser, typeLex: number, begin: Lexeme): boolean
 	local beginMatch = MatchLexeme.new(begin)
 
@@ -3327,6 +3711,11 @@ function prototype.expectMatchEndAndConsume(self: Parser, typeLex: number, begin
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.expectMatchEndAndConsumeFail(self: Parser, typeLex: number, begin: MatchLexeme): ()
 	if self.endMismatchSuspect.type ~= Lexeme.Type.Eof and self.endMismatchSuspect.position.line > begin.position.line then
 		local matchString = Lexeme.new(Location.new(Position.new(0, 0), 0), self.endMismatchSuspect.type):toString()
@@ -3338,10 +3727,20 @@ function prototype.expectMatchEndAndConsumeFail(self: Parser, typeLex: number, b
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.copy<T>(self: Parser, data: TempVector<T>): {T}
 	return data:copy_data()
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.incrementRecursionCounter(self: Parser, context: string): ()
 	self.recursionCounter += 1
 
@@ -3350,6 +3749,11 @@ function prototype.incrementRecursionCounter(self: Parser, context: string): ()
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.report(self: Parser, location: Location, format: string, ...: any): ()
 	-- To reduce number of errors reported to user for incomplete statements, we skip multiple errors at the same location
 	-- For example, consider 'local a = (((b + ' where multiple tokens haven't been written yet
@@ -3371,6 +3775,11 @@ function prototype.report(self: Parser, location: Location, format: string, ...:
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.reportNameError(self: Parser, context: string?): ()
 	if context then
 		self:report(self.lexer:current().location, "Expected identifier when parsing %s, got %s", context, self.lexer:current():toString())
@@ -3379,24 +3788,44 @@ function prototype.reportNameError(self: Parser, context: string?): ()
 	end
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.reportStatError(self: Parser, location: Location, expressions: {AstExpr}, statements: {AstStat}, format: string, ...: string): AstStatError
 	self:report(location, format, ...)
 	
 	return AstStatError.new(location, expressions, statements, unsigned(self.parseErrors:size() - 1))
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.reportExprError(self: Parser, location: Location, expressions: {AstExpr}, format: string, ...: string): AstExprError
 	self:report(location, format, ...)
 
 	return AstExprError.new(location, expressions, unsigned(self.parseErrors:size() - 1))
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.reportTypeError(self: Parser, location: Location, types: {AstType}, format: string, ...: string): AstTypeError
 	self:report(location, format, ...)
 
 	return AstTypeError.new(location, types, false, unsigned(self.parseErrors:size() - 1))
 end
 
+--[=[
+	@within Parser
+	@private
+	@since v0.1.0
+]=]
 function prototype.reportMissingTypeError(self: Parser, parseErrorLocation: Location, astErrorLocation: Location, format: string, ...: string): AstTypeError
 	self:report(parseErrorLocation, format, ...)
 
@@ -3405,9 +3834,10 @@ end
 
 --[=[
 	@within Parser
-	@method nextLexeme
+	@private
+	@since v0.1.0
 
-	Computes the next lexeme. If specified, the parser will collect [comments](#Comment) and [hot comments](#HotComment).
+	Computes the next lexeme. If specified, the parser will collect [comments](Comment) and [hot comments](HotComment).
 ]=]
 function prototype.nextLexeme(self: Parser): ()
 	local typeLex = self.lexer:next(--[[ skipComments= ]] false, true).type

@@ -18,6 +18,9 @@ export type AstStatWhile = AstStat & {
 	doLocation: Location
 }
 
+--[=[
+	@class AstStatWhile
+]=]
 local AstStatWhile = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstStatWhile

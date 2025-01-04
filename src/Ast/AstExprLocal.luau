@@ -14,6 +14,9 @@ export type AstExprLocal = AstExpr & {
 	upvalue: boolean
 }
 
+--[=[
+	@class AstExprLocal
+]=]
 local AstExprLocal = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstExprLocal

@@ -20,6 +20,9 @@ export type AstTypeReference = AstType & {
 	parameters: {AstTypeOrPack}
 }
 
+--[=[
+	@class AstTypeReference
+]=]
 local AstTypeReference = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstTypeReference

@@ -1,6 +1,6 @@
-local AstName = require("./AstName")
-local Lexeme = require("./Lexeme")
-local Pair = require("./Pair")
+local AstName = require("@Ast/AstName")
+local Lexeme = require("@Ast/Lexeme")
+local Pair = require("@Ast/Pair")
 
 type AstName = AstName.AstName
 type Pair<T1, T2> = Pair.Pair<T1, T2>

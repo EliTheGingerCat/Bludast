@@ -1,20 +1,26 @@
 local Location = require("./Location")
 
---[=[
-	@class Comment
-	Class from `root/Ast/include/Luau/ParseResult.cpp`.
-]=]
+
 --[=[
 	@within Comment
 	@prop type number
+
 	Comment, BlockComment, or BrokenComment
 ]=]
 --[=[
 	@within Comment
 	@prop location Location
 ]=]
+local _
+
+--[=[
+	@class Comment
+	
+	Class from `root/Ast/include/Luau/ParseResult.cpp`.
+]=]
 local Comment = {}
 
+--- @within Comment
 function Comment.new(typeLex: number, location: Location.Location)
 	return {
 		type = typeLex,

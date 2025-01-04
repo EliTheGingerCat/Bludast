@@ -12,9 +12,13 @@ type AstVisitor = AstVisitor.AstVisitor
 
 --[=[
 	@class AstUtilities
+	
+	Various functions found in `/Ast/Ast.cpp`.
 ]=]
 local AstUtilities = {}
 
+
+--- @within AstUtilities
 function AstUtilities.visitTypeList(visitor: AstVisitor, list: AstTypeList): ()
 	for _, ty in list.types do
 		ty:visit(visitor)
@@ -25,6 +29,7 @@ function AstUtilities.visitTypeList(visitor: AstVisitor, list: AstTypeList): ()
 	end
 end
 
+--- @within AstUtilities
 function AstUtilities.getIdentifier(node: AstExpr): AstName
 	local exprG = node:as(AstExprGlobal)
 	if exprG then

@@ -13,7 +13,6 @@ export type AstExprVarargs = AstExpr & {
 
 --[=[
 	@class AstExprVarargs
-	@tag class
 ]=]
 local AstExprVarargs = {
 	ClassIndex = AstClassIndex(),

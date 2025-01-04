@@ -15,7 +15,6 @@ export type AstTypePackGeneric = AstType & {
 
 --[=[
 	@class AstTypePackGeneric
-	@tag class
 ]=]
 local AstTypePackGeneric = {
 	ClassIndex = AstClassIndex(),

@@ -9,6 +9,9 @@ type AstName = AstName.AstName
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
+--[=[
+	@class AstExprGlobal
+]=]
 export type AstExprGlobal = AstExpr & {
 	name: AstName.AstName
 }

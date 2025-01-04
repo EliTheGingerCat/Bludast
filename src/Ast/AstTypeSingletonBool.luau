@@ -7,25 +7,32 @@ type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
---[=[
-	@class AstTypeSingletonBool
-
-	A boolean is true or false. It is named after [George Boole](https://en.wikipedia.org/wiki/George_Boole).
-
-	```lua
-	if true then
-		print("This will be printed.")
-	end
-
-	if false then
-		print("This will not be printed.")
-	end
-	```
-]=]
 export type AstTypeSingletonBool = AstType & {
 	value: boolean
 }
 
+--[=[
+	@class AstTypeSingletonBool
+
+	Booleans can be used as singletons in types.
+
+	```lua
+	type results<T, F> = {
+		success: true,
+		value: T
+	} | {
+		success: false,
+		value: F
+	}
+
+	local response: results<number, string>
+	if response.success then
+		-- response.value: number
+	else
+		-- response.value: string
+	end
+	```
+]=]
 local AstTypeSingletonBool = {
 	ClassIndex = AstClassIndex(),
 	ClassType = (nil :: any) :: AstTypeSingletonBool
