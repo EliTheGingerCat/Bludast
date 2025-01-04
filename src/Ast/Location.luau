@@ -87,7 +87,7 @@ end
 	Returns the object if it is a Location object.
 ]=]
 function Location.is(object: any): Location?
-	if getmetatable(object) == Location then
+	if getmetatable(object) == metatable then
 		return object
 	else
 		return nil

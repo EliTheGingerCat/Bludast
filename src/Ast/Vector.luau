@@ -176,6 +176,7 @@ end
 
 -- for TempVector
 function prototype.copy_range<T>(self: Vector<T>, from: number, to: number): {T}
+	assert(from > 0 and to < self._size + 1)
 	return table.move(self._data, from, to, 1, {})
 end
 
