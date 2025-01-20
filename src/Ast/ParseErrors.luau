@@ -26,7 +26,11 @@ function ParseErrors.new(errors: Vector<ParseError>)
 
 	return self
 end
-type ParseErrors = typeof(ParseErrors.new(...))
+export type ParseErrors = typeof(ParseErrors.new(...))
+
+function metatable.__tostring(self: ParseError): string
+	return self:what()
+end
 
 function prototype.what(self: ParseErrors): string
 	return self.message
