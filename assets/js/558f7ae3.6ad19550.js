@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs=self.webpackChunkdocs||[]).push([[2631],{69761:e=>{e.exports=JSON.parse('{"functions":[],"properties":[],"types":[],"name":"AstTypeTypeof","desc":"","source":{"line":19,"path":"src/Ast/AstTypeTypeof.luau"}}')}}]);

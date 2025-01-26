@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs=self.webpackChunkdocs||[]).push([[1044],{85575:s=>{s.exports=JSON.parse('{"functions":[],"properties":[],"types":[],"name":"AstLocal","desc":"","source":{"line":24,"path":"src/Ast/AstLocal.luau"}}')}}]);

@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs=self.webpackChunkdocs||[]).push([[5389],{65019:s=>{s.exports=JSON.parse('{"functions":[],"properties":[],"types":[],"name":"AstExpr","desc":"An expression is any combination of variables, constants, and operators that evaluates to a single value.","source":{"line":12,"path":"src/Ast/AstExpr.luau"}}')}}]);

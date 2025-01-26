@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs=self.webpackChunkdocs||[]).push([[4797],{62899:e=>{e.exports=JSON.parse('{"functions":[],"properties":[],"types":[],"name":"FastVariables","desc":"Luau flags that can be changed to quickly revert an update.\\n\\nThese flags are found all over C++ files.","source":{"line":8,"path":"src/Ast/FastVariables.luau"}}')}}]);

@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs=self.webpackChunkdocs||[]).push([[4873],{96389:s=>{s.exports=JSON.parse('{"functions":[],"properties":[],"types":[],"name":"AstTableProp","desc":"","source":{"line":49,"path":"src/Ast/AstTableProp.luau"}}')}}]);

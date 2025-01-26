@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs=self.webpackChunkdocs||[]).push([[2252],{44758:s=>{s.exports=JSON.parse('{"functions":[],"properties":[],"types":[],"name":"AstTableAccess","desc":"For some reason binary numbers are used.","tags":["enum class"],"source":{"line":7,"path":"src/Ast/AstTableAccess.luau"}}')}}]);

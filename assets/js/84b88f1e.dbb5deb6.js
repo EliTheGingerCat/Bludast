@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs=self.webpackChunkdocs||[]).push([[617],{78359:e=>{e.exports=JSON.parse('{"functions":[],"properties":[],"types":[],"name":"AstStatDeclareGlobal","desc":"","source":{"line":33,"path":"src/Ast/AstStatDeclareGlobal.luau"}}')}}]);

@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs=self.webpackChunkdocs||[]).push([[3388],{74221:s=>{s.exports=JSON.parse('{"functions":[],"properties":[],"types":[],"name":"AstStatIf","desc":"","source":{"line":27,"path":"src/Ast/AstStatIf.luau"}}')}}]);
