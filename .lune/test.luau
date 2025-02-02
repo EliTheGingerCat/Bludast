@@ -85,16 +85,15 @@ if not fs.isDir("./tests") then
 	return
 end
 
-local pathStart =
-	if requestedFile == nil
-	then "./tests"
-	else "./tests/" .. requestedFile
+local pathStart = "./tests"
 
 if requestedFile then
 	if not requestedTest then
 		reportFatalError(`If file is specified ("{requestedFile}") then test name must also be specified.`)
 		return
 	end
+
+	pathStart ..= "/" .. requestedFile
 
 	local metadata = fs.metadata(pathStart)
 	if not metadata.exists then
@@ -117,6 +116,8 @@ if requestedFile then
 	end
 
 	testCase(pathStart, requestedTest, case)
+
+	return
 end
 
 testAny(pathStart)

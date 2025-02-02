@@ -1,5 +1,4 @@
 local Location = require("./Location")
-local StringUtils = require("./StringUtils")
 
 type Location = Location.Location
 
@@ -54,7 +53,7 @@ end
 	@since v0.1.0
 ]=]
 function ParseError.raise(location: Location, format: string, ...: any): ()
-	local message = StringUtils.vformat(format, ...)
+	local message = format:format(...)
 
 	error(ParseError.new(location, message))
 end

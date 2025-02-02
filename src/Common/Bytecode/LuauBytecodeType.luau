@@ -1,0 +1,26 @@
+--[=[
+	@class LuauBytecodeType
+
+	Type table tags
+]=]
+return {
+	LBC_TYPE_NIL = 0,
+    LBC_TYPE_BOOLEAN = 1,
+    LBC_TYPE_NUMBER = 2,
+    LBC_TYPE_STRING = 3,
+    LBC_TYPE_TABLE = 4,
+    LBC_TYPE_FUNCTION = 5,
+    LBC_TYPE_THREAD = 6,
+    LBC_TYPE_USERDATA = 7,
+    LBC_TYPE_VECTOR = 8,
+    LBC_TYPE_BUFFER = 9,
+
+	LBC_TYPE_ANY = 15,
+
+	LBC_TYPE_TAGGED_USERDATA_BASE = 64,
+	LBC_TYPE_TAGGED_USERDATA_END = 64 + 32,
+
+	LBC_TYPE_OPTIONAL_BIT = bit32.lshift(1, 7),
+
+	LBC_TYPE_INVALID = 256
+}

@@ -1,8 +1,5 @@
-local GlobalContext = require("./GlobalContext")
 local Scope = require("./Scope")
 local Utilities = require("./Utilities")
-
-type GlobalContext = GlobalContext.GlobalContext
 
 local TimeTrace = {}
 

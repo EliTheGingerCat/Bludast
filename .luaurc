@@ -4,6 +4,7 @@
 		"*": true
 	},
 	"aliases": {
-		"Ast": "src/Ast"
+		"Ast": "src/Ast",
+		"Common": "src/Common"
 	}
 }

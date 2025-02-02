@@ -6,7 +6,7 @@ local Location = require("./Location")
 type AstExpr = AstExpr.AstExpr
 type Location = Location.Location
 
-type AstExprCall = AstExpr & {
+export type AstExprCall = AstExpr & {
 	func: AstExpr,
 	args: {AstExpr},
 	self: boolean,

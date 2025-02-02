@@ -24,7 +24,7 @@ local AstExprVarargs = require("./AstExprVarargs")
 local AstGenericType = require("./AstGenericType")
 local AstGenericTypePack = require("./AstGenericTypePack")
 local AstLocal = require("./AstLocal")
-local AstName = require("AstName")
+local AstName = require("./AstName")
 local AstNameTable = require("./AstNameTable")
 local AstStat = require("./AstStat")
 local AstStatAssign = require("./AstStatAssign")
@@ -80,7 +80,6 @@ local ParseError = require("./ParseError")
 local ParseOptions = require("./ParseOptions")
 local ParseResult = require("./ParseResult")
 local Position = require("./Position")
-local StringUtils = require("./StringUtils")
 local TempVector = require("./TempVector")
 local TimeTrace = require("./TimeTrace")
 local Vector = require("./Vector")
@@ -159,7 +158,7 @@ end
 --[=[
 	@class Parser_MatchLexeme
 
-	Struct from [`/Ast/include/Luau/Parser.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Parser.h#L281-291).
+	Struct from [`/Ast/include/Luau/Parser.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Parser.h#L281-L291).
 ]=]
 local MatchLexeme = {}
 
@@ -308,10 +307,7 @@ type Binding = {
 
 --[=[
 	@within Parser_Binding
-	@function new
-	@param name Name
-	@param annotation AstType
-	@return Parser_Binding
+	@since v0.1.0
 ]=]
 function Binding.new(name: Name, annotation: AstType?): Binding
 	return {
@@ -337,8 +333,6 @@ local kAttributeEntries: {AttributeEntry} = {
 
 --[=[
 	@within Parser
-	@function destroy
-	@param vectors {TempVector<any>}
 	@private
 	@since v0.1.0
 	@tag local
@@ -353,9 +347,6 @@ end
 
 --[=[
 	@within Parser
-	@function shouldParseTypePack
-	@param lexer Lexer
-	@return boolean
 	@private
 	@since v0.1.0
 	@tag local
@@ -1972,7 +1963,7 @@ end
 	@private
 	@since v0.1.0
 ]=]
-function prototype.parseTableType(self: Parser, inDeclarationContext: boolean): AstType
+function prototype.parseTableType(self: Parser, inDeclarationContext: boolean?): AstType
 	self:incrementRecursionCounter("type annotation")
 
 	local props = TempVector.new(self.scratchTableTypeProps)
@@ -2288,13 +2279,14 @@ function prototype.parseTypeOrPack(self: Parser): AstTypeOrPack
 	local begin = self.lexer:current().location
 
 	local results = self:parseSimpleType(--[[ allowPack= ]] true)
-	local typeAst = results.first
-	local typePack = results.second
+	local typeAst = results.type
+	local typePack = results.typePack
 
 	if typePack then
 		assert(typeAst == nil)
 		return AstTypeOrPack.new(nil, typePack)
 	end
+	assert(typeAst)
 
 	self.recursionCounter = oldRecursionCount
 
@@ -2423,7 +2415,7 @@ function prototype.parseSimpleType(self: Parser, allowPack: boolean, inDeclarati
 	elseif self.lexer:current().type == Lexeme.Type.ReservedFunction then
 		self:nextLexeme()
 
-		return AstTypeOrPack.new(self:reportTypeError(start, nil, "Using 'function' as a type annotation is not supported, consider replacing with a function type annotation e.g. '(...any) -> ...any'"), nil)
+		return AstTypeOrPack.new(self:reportTypeError(start, {}, "Using 'function' as a type annotation is not supported, consider replacing with a function type annotation e.g. '(...any) -> ...any'"), nil)
 	else
 		-- For a missing type annotation, capture 'space' between last token and the next one
 		local astErrorlocation = Location.new(self.lexer:previousLocation().finish, start.begin)
@@ -3332,7 +3324,7 @@ function prototype.parseTypeParams(self: Parser): {AstTypeOrPack}
 			elseif self.lexer:current().type == ("("):byte() then
 				local results = self:parseTypeOrPack()
 				local typeAst = results.first
-				local typePack = results.second
+				local typePack = results.typePack
 
 				if typePack then
 					parameters:push_back(AstTypeOrPack.new(nil, typePack))
@@ -3719,7 +3711,7 @@ end
 function prototype.expectMatchEndAndConsumeFail(self: Parser, typeLex: number, begin: MatchLexeme): ()
 	if self.endMismatchSuspect.type ~= Lexeme.Type.Eof and self.endMismatchSuspect.position.line > begin.position.line then
 		local matchString = Lexeme.new(Location.new(Position.new(0, 0), 0), self.endMismatchSuspect.type):toString()
-		local suggestion = StringUtils.format("; did you forget to close %s at line %d?", matchString, self.endMismatchSuspect.position.line + 1)
+		local suggestion = ("; did you forget to close %s at line %d?"):format(matchString, self.endMismatchSuspect.position.line + 1)
 
 		self:expectMatchAndConsumeFail(typeLex, begin, suggestion)
 	else
@@ -3761,7 +3753,7 @@ function prototype.report(self: Parser, location: Location, format: string, ...:
 		return
 	end
 
-	local message = StringUtils.vformat(format, ...)
+	local message = format:format(...)
 
 	-- when limited to a single error, behave as if the error recovery is disabled
 	if FastVariables.LuauParseErrorLimit == 1 then

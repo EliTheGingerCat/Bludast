@@ -66,33 +66,39 @@ function Entry.__eq(self: Entry, other: Entry): boolean
 	return self.value.value == other.value.value
 end
 
+local prototype = {}
+
 --[=[
 	@class AstNameTable
+	@__index prototype
+
 	Class from `/Ast/src/Lexer.cpp`.
 ]=]
-local AstNameTable = {}
-AstNameTable.__index = AstNameTable
+local AstNameTable = {
+	prototype = prototype
+}
+
+local metatable = {
+	__index = prototype
+}
+
 export type AstNameTable = typeof(setmetatable({} :: {
 	data: {
 		[string]: Entry
 	}
-}, AstNameTable))
+}, metatable))
 
 function AstNameTable.new(): AstNameTable
 	return setmetatable({
 		data = {}
-	}, AstNameTable)
+	}, metatable)
 end
 
 --[=[
 	@within AstNameTable
-	@method addStatic
-	@param name string
-	@param lexType TypeEnum
-	@return AstName
 	@since v0.1.0
 ]=]
-function AstNameTable.addStatic(self: AstNameTable, name: string, typeLexeme: number): AstName
+function prototype.addStatic(self: AstNameTable, name: string, typeLexeme: number): AstName
 	local entry = Entry.new(AstName.new(name), #name, typeLexeme)
 
 	-- No need for EntryHash, Luau tables already use hashing. Perhaps it is still more efficient to use FNV1a though?
@@ -103,13 +109,9 @@ end
 
 --[=[
 	@within AstNameTable
-	@method getOrAddWithType
-	@param name string
-	@param length number
-	@return Pair<AstName, TypeEnum>
 	@since v0.1.0
 ]=]
-function AstNameTable.getOrAddWithType(self: AstNameTable, name: string, length: number): Pair<AstName, number>
+function prototype.getOrAddWithType(self: AstNameTable, name: string, length: number): Pair<AstName, number>
 	local entry = Entry.new(AstName.new(name), length, Lexeme.Type.Eof)
 	
 	-- entry already was inserted
@@ -124,13 +126,9 @@ end
 
 --[=[
 	@within AstNameTable
-	@method getWithType
-	@param name string
-	@param length number
-	@return Pair<AstName, TypeEnum>
 	@since v0.1.0
 ]=]
-function AstNameTable.getWithType(self: AstNameTable, name: string, length: number): Pair<AstName, number>
+function prototype.getWithType(self: AstNameTable, name: string, length: number): Pair<AstName, number>
 	local entry = self.data[name]; if entry then
 		return Pair.new(entry.value, entry.type)
 	end
@@ -139,12 +137,9 @@ end
 
 --[=[
 	@within AstNameTable
-	@method getOrAdd
-	@param name string
-	@return AstName
 	@since v0.1.0
 ]=]
-function AstNameTable.getOrAdd(self: AstNameTable, name: string): AstName
+function prototype.getOrAdd(self: AstNameTable, name: string): AstName
 	return self:getOrAddWithType(name, #name).first
 end
 
@@ -155,7 +150,7 @@ end
 	@return AstName
 	@since v0.1.0
 ]=]
-function AstNameTable.get(self: AstNameTable, name: string): AstName
+function prototype.get(self: AstNameTable, name: string): AstName
 	return self:getWithType(name, #name).first
 end
 

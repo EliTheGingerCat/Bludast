@@ -1,5 +1,6 @@
 --[=[
 	@class ParseOptions
+
 	Struct from `root/Ast/include/Luau/ParseOptions.h`.
 ]=]
 local ParseOptions = {}
@@ -11,6 +12,7 @@ export type ParseOptions = {
 --[=[
 	@within ParseOptions
 	@interface ModeEnum
+
 	.NoCheck 1    -- Do not perform any inference
 	.Nonstrict 2  -- Unannotated symbols are any
 	.Strict 3     -- Unannotated symbols are inferred
@@ -31,16 +33,12 @@ ParseOptions.Mode = {
 
 --[=[
 	@within ParseOptions
-	@function new
-	@param allowDeclarationSyntax boolean
-	@param captureComments boolean
-	@return ParseOptions
 	@since v0.1.0
 ]=]
-function ParseOptions.new(allowDeclarationSyntax: boolean, captureComments: boolean): (ParseOptions)
+function ParseOptions.new(allowDeclarationSyntax: boolean?, captureComments: boolean?): (ParseOptions)
 	return {
-		allowDeclarationSyntax = allowDeclarationSyntax,
-		captureComments = captureComments
+		allowDeclarationSyntax = allowDeclarationSyntax or false,
+		captureComments = captureComments or false
 	}
 end
 

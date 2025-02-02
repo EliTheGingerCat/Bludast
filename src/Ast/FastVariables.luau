@@ -64,6 +64,26 @@ return {
 
 	--[=[
 		@within FastVariables
+		@prop LuauCompileTypeInfo false
+		@readonly
+		@since v0.1.0
+
+		Writes type information into the bytecode.
+	]=]
+	LuauCompileTypeInfo = false,
+	
+	--[=[
+		@within FastVariables
+		@prop LuauCompileUserdataInfo false
+		@readonly
+		@since v0.1.0
+
+		Writes userdata information into the bytecode.
+	]=]
+	LuauCompileUserdataInfo = false,
+
+	--[=[
+		@within FastVariables
 		@prop LuauLeadingBarAndAmpersand2 false
 		@readonly
 		@since v0.1.0

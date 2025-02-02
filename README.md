@@ -39,8 +39,14 @@ Install [Rokit](https://github.com/rojo-rbx/rokit), then run `rokit install`.
 
 Install [Node.js and Node Package Manager](https://nodejs.org/en/download), then run `npm install`.
 
+Run `lune list` to see available scripts.
+
 **Moonwave**
 
 Use `moonwave dev` to view the site.
 
 See: https://github.com/evaera/moonwave/issues/163
+
+**Testing**
+
+Run `lune run test` and ensure there are no errors before making a pull request.
