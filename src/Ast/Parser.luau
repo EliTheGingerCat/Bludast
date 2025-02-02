@@ -3850,8 +3850,8 @@ function prototype.nextLexeme(self: Parser): ()
 			if lexeme.type == Lexeme.Type.Comment and lexeme:getLength() > 0 and lexeme.data and lexeme.data:sub(1, 1) == "!" then
 				local text = lexeme.data
 
-				local firstSpace = text:find("%s")
-				self.hotcomments:push_back(HotComment.new(self.hotcommentHeader, lexeme.location, text:sub(2, firstSpace)))
+				local firstSpace = text:find("%s") or #text + 1
+				self.hotcomments:push_back(HotComment.new(self.hotcommentHeader, lexeme.location, text:sub(2, firstSpace - 1)))
 			end
 
 			typeLex = self.lexer:next(false, false).type

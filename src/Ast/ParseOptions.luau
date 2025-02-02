@@ -35,7 +35,7 @@ ParseOptions.Mode = {
 	@within ParseOptions
 	@since v0.1.0
 ]=]
-function ParseOptions.new(allowDeclarationSyntax: boolean?, captureComments: boolean?): (ParseOptions)
+function ParseOptions.new(allowDeclarationSyntax: boolean?, captureComments: boolean?): ParseOptions
 	return {
 		allowDeclarationSyntax = allowDeclarationSyntax or false,
 		captureComments = captureComments or false
