@@ -1,9 +1,9 @@
 local Bytecode = require("@Common/Bytecode/LuauBytecodeType")
 local BytecodeEncoder = require("./BytecodeEncoder")
-local FastVariables = require("@Ast/FastVariables")
-local NumberUtilities = require("@Ast/NumberUtilities")
-local Pair = require("@Ast/Pair")
-local Vector = require("@Ast/Vector")
+local FastVariables = require("@Shared/FastVariables")
+local NumberUtilities = require("@Shared/NumberUtilities")
+local Pair = require("@Polyfill/Pair")
+local Vector = require("@Polyfill/Vector")
 
 local btn = NumberUtilities.booleanToNumber
 type BytecodeEncoder = BytecodeEncoder.BytecodeEncoder

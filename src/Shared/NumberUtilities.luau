@@ -1,5 +1,7 @@
 --[=[
 	@class NumberUtilities
+
+	Various functions to help deal with numbers in ways that are normal in C++ but weird in Luau.
 ]=]
 local NumberUtilities = {}
 

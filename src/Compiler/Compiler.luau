@@ -7,14 +7,14 @@ local AstName = require("@Ast/AstName")
 local AstNameTable = require("@Ast/AstNameTable")
 local BytecodeBuilder = require("./BytecodeBuilder")
 local CompileOptions = require("./CompileOptions")
-local FastVariables = require("@Ast/FastVariables")
+local FastVariables = require("@Shared/FastVariables")
 local LuauProtoFlag = require("@Common/Bytecode/LuauProtoFlag")
 local Parser = require("@Ast/Parser")
 local ParseErrors = require("@Ast/ParseErrors")
 local ParseResult = require("@Ast/ParseResult")
 local ParseOptions = require("@Ast/ParseOptions")
-local TimeTrace = require("@Ast/TimeTrace")
-local Vector = require("@Ast/Vector")
+local TimeTrace = require("@Shared/TimeTrace")
+local Vector = require("@Polyfill/Vector")
 
 type AstExpr = AstExpr.AstExpr
 type AstExprCall = AstExprCall.AstExprCall

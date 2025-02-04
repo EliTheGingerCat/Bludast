@@ -10,7 +10,7 @@ local AstTypeList = require("./AstTypeList")
 local AstTypePack = require("./AstTypePack")
 local AstUtilities = require("./AstUtilities")
 local AstVisitor = require("./AstVisitor")
-local FastVariables = require("./FastVariables")
+local FastVariables = require("@Shared/FastVariables")
 local Location = require("./Location")
 
 type AstAttr = AstAttr.AstAttr
@@ -97,7 +97,7 @@ end
 function prototype.hasNativeAttribute(self: AstExprFunction): boolean
 	assert(FastVariables.LuauNativeAttribute)
 
-	for attribute in self.attributes do
+	for _, attribute in self.attributes do
 		if attribute.type == AstAttr.Type.Native then
 			return true
 		end

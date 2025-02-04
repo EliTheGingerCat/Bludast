@@ -1,7 +1,7 @@
 local Event = require("./Event")
 local GlobalContext = require("./GlobalContext")
 local Utilities = require("./Utilities")
-local Vector = require("../Vector")
+local Vector = require("@Polyfill/Vector")
 
 type Event = Event.Event
 type GlobalContext = GlobalContext.GlobalContext

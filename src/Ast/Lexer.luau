@@ -1,9 +1,9 @@
 local AstNameTable = require("./AstNameTable")
-local FastVariables = require("./FastVariables")
+local FastVariables = require("@Shared/FastVariables")
 local Lexeme = require("./Lexeme")
 local Location = require("./Location")
 local Position = require("./Position")
-local NumberUtilities = require("./NumberUtilities")
+local NumberUtilities = require("@Shared/NumberUtilities")
 
 type AstNameTable = AstNameTable.AstNameTable
 type Lexeme = Lexeme.Lexeme

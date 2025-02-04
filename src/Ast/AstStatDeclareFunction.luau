@@ -8,7 +8,7 @@ local AstStat = require("./AstStat")
 local AstTypeList = require("./AstTypeList")
 local AstUtilities = require("./AstUtilities")
 local AstVisitor = require("./AstVisitor")
-local FastVariables = require("./FastVariables")
+local FastVariables = require("@Shared/FastVariables")
 local Location = require("./Location")
 
 type AstArgumentName = AstArgumentName.AstArgumentName

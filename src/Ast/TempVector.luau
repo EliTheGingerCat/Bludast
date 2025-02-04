@@ -1,4 +1,4 @@
-local Vector = require("./Vector")
+local Vector = require("@Polyfill/Vector")
 
 type Vector<T> = Vector.Vector<T>
 

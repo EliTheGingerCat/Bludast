@@ -42,8 +42,8 @@ local ParseOptions = require("@Ast/ParseOptions")
 local ParseResult = require("@Ast/ParseResult")
 local Parser = require("@Ast/Parser")
 local Position = require("@Ast/Position")
-local Try = require("@Ast/Try")
-local Vector = require("@Ast/Vector")
+local Try = require("@Polyfill/Try")
+local Vector = require("@Polyfill/Vector")
 
 type AstStatBlock = AstStatBlock.AstStatBlock
 type ParseErrors = ParseErrors.ParseErrors

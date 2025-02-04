@@ -1,5 +1,5 @@
 local ParseError = require("./ParseError")
-local Vector = require("./Vector")
+local Vector = require("@Polyfill/Vector")
 
 type ParseError = ParseError.ParseError
 type Vector<T> = Vector.Vector<T>

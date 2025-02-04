@@ -1,5 +1,5 @@
 local Token = require("./Token")
-local Vector = require("../Vector")
+local Vector = require("@Polyfill/Vector")
 
 type Token = Token.Token
 type Vector<T> = Vector.Vector<T>

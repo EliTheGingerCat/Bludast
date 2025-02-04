@@ -5,6 +5,8 @@
 	},
 	"aliases": {
 		"Ast": "src/Ast",
-		"Common": "src/Common"
+		"Common": "src/Common",
+		"Polyfill": "src/C++_Polyfill",
+		"Shared": "src/Shared"
 	}
 }

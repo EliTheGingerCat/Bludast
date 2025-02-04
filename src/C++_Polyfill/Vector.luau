@@ -1,5 +1,6 @@
 --[=[
 	@class Vector
+	
 	Class template from [C++ std](https://cplusplus.com/reference/vector/vector/).
 ]=]
 local Vector = {}

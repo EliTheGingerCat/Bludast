@@ -1,6 +1,6 @@
 local AstName = require("@Ast/AstName")
 local Lexeme = require("@Ast/Lexeme")
-local Pair = require("@Ast/Pair")
+local Pair = require("@Polyfill/Pair")
 
 type AstName = AstName.AstName
 type Pair<T1, T2> = Pair.Pair<T1, T2>

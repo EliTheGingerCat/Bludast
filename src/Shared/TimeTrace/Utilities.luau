@@ -3,7 +3,7 @@ local fs = require("@lune/fs")
 local Event = require("./Event")
 local GlobalContext = require("./GlobalContext")
 local Token = require("./Token")
-local Vector = require("../Vector")
+local Vector = require("@Polyfill/Vector")
 
 type Event = Event.Event
 type GlobalContext = GlobalContext.GlobalContext

@@ -2,7 +2,7 @@ local AstStatBlock = require("./AstStatBlock")
 local Comment = require("./Comment")
 local HotComment = require("./HotComment")
 local ParseError = require("./ParseError")
-local Vector = require("./Vector")
+local Vector = require("@Polyfill/Vector")
 
 type AstStatBlock = AstStatBlock.AstStatBlock
 type Comment = Comment.Comment

@@ -1,9 +1,7 @@
 --[=[
 	@class FastVariables
 	
-	Luau flags that can be changed to quickly revert an update.
-	
-	These flags are found all over C++ files.
+	Luau settings that can be changed to quickly revert an update. In Bludast's case, one would need to set the flags before initialisation, so they are not really that fast. These variables are found all over C++ files. The C++ code distinguishes between flags and integers, but here we group everything together.
 ]=]
 return {
 	--[=[
