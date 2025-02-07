@@ -13,4 +13,16 @@ function BytecodeUtilities.LUAU_INSN_OP(insn: number): number
 	return bit32.band(insn, 0xff)
 end
 
+
+-- ABC encoding: three 8-bit values, containing registers or small numbers
+function BytecodeUtilities.LUAU_INSN_A(insn: number): number
+	return bit32.band(bit32.rshift(insn,  8), 0xff)
+end
+function BytecodeUtilities.LUAU_INSN_B(insn: number): number
+	return bit32.band(bit32.rshift(insn, 16), 0xff)
+end
+function BytecodeUtilities.LUAU_INSN_C(insn: number): number
+	return bit32.band(bit32.rshift(insn, 24), 0xff)
+end
+
 return BytecodeUtilities

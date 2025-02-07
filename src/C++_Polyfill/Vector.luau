@@ -146,7 +146,7 @@ end
 	@within Vector
 	@method erase
 	@param first number
-	@param last number
+	@param last number?
 	@since v0.1.0
 
 	Overloads:
@@ -217,11 +217,11 @@ end
 	@within Vector
 	@since v0.1.0
 
-	Returns the inner array.
+	Returns the internal array. This should only be used for iteration, which requires this method since the `__iter` metamethod does not produce the correct types.
 
 	:::danger
 
-	The inner array must not be mutated.
+	The return value must not be mutated.
 
 	:::
 ]=]

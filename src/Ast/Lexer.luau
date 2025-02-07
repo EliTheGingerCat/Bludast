@@ -3,13 +3,13 @@ local FastVariables = require("@Shared/FastVariables")
 local Lexeme = require("./Lexeme")
 local Location = require("./Location")
 local Position = require("./Position")
-local NumberUtilities = require("@Shared/NumberUtilities")
+local NumberConversions = require("@Polyfill/NumberConversions")
 
 type AstNameTable = AstNameTable.AstNameTable
 type Lexeme = Lexeme.Lexeme
 type Location = Location.Location
 type Position = Position.Position
-local unsigned = NumberUtilities.unsigned
+local unsigned = NumberConversions.unsigned
 
 local CHAR_ZERO = string.char(0)
 local UCHAR_MAX = 255

@@ -1,7 +1,7 @@
 --[=[
 	@class LuauBytecodeType
 
-	Type table tags
+	Type table tags.
 ]=]
 return {
 	LBC_TYPE_NIL = 0,

@@ -1,14 +1,24 @@
-local Bytecode = require("@Common/Bytecode/LuauBytecodeType")
 local BytecodeEncoder = require("./BytecodeEncoder")
+local BytecodeUtilities = require("@Common/Bytecode/BytecodeUtilities")
 local FastVariables = require("@Shared/FastVariables")
+local LuauBytecodeTag = require("@Common/Bytecode/LuauBytecodeTag")
+local LuauBytecodeType = require("@Common/Bytecode/LuauBytecodeType")
+local LuauOpcode = require("@Common/Bytecode/LuauOpcode")
+local NumberConversions = require("@Polyfill/NumberConversions")
 local NumberUtilities = require("@Shared/NumberUtilities")
 local Pair = require("@Polyfill/Pair")
 local Vector = require("@Polyfill/Vector")
 
 local btn = NumberUtilities.booleanToNumber
 type BytecodeEncoder = BytecodeEncoder.BytecodeEncoder
+local int16_t = NumberConversions.int16_t
+local LUAU_INSN_C = BytecodeUtilities.LUAU_INSN_C
+local LUAU_INSN_OP = BytecodeUtilities.LUAU_INSN_OP
 type Pair<T1, T2> = Pair.Pair<T1, T2>
-local unsigned = NumberUtilities.unsigned
+local uint8_t = NumberConversions.uint8_t
+local uint16_t = NumberConversions.uint16_t
+local uint32_t = NumberConversions.uint32_t
+local unsigned = NumberConversions.unsigned
 type Vector<T> = Vector.Vector<T>
 
 local function dictionarySize(tab: {}): number
@@ -19,15 +29,26 @@ local function dictionarySize(tab: {}): number
 	return count
 end
 
+--[=[
+	@within BytecodeBuilder
+	
+	Used for passing strings by reference.
+]=]
+type stringWrap = {
+	s: string
+}
+
 local kMaxConstantCount = bit32.lshift(1, 23)
 local kMaxClosureCount = bit32.lshift(1, 15)
+
+local kMaxJumpDistance = bit32.lshift(1, 23)
+
+local StringRef = {}
 
 type StringRef = {
 	data: string,
 	length: number
 }
-
-local StringRef = {}
 
 function StringRef.new(data: string, length: number): StringRef
 	return {
@@ -38,11 +59,26 @@ end
 
 local kMaxLength = 32
 
+--[=[
+	@class TableShape
+]=]
+local TableShape = {}
+
 type TableShape = {
 	keys: {number},
 	length: number
 }
 
+function TableShape.new(): TableShape
+	return {
+		keys = table.create(kMaxLength),
+		length = 0
+	}
+end
+
+--[=[
+	@class DumpFlags
+]=]
 local DumpFlags = {
 	Dump_Code = bit32.lshift(1, 0),
 	Dump_Lines = bit32.lshift(1, 1),
@@ -52,6 +88,9 @@ local DumpFlags = {
 	Dump_Types = bit32.lshift(1, 5)
 }
 
+--[=[
+	@class Constant
+]=]
 local Constant = {
 	Type = {
 		Type_Nil = 1,
@@ -83,6 +122,9 @@ function Constant.new(type: number): Constant
 	}
 end
 
+--[=[
+	@class ConstantKey
+]=]
 local ConstantKey = {}
 
 type ConstantKey = {
@@ -97,6 +139,11 @@ function ConstantKey.new(type: number, value: number?): ConstantKey
 		value = value or 0
 	}
 end
+
+--[=[
+	@class Function
+]=]
+local Function = {}
 
 type Function = {
 	data: string,
@@ -115,8 +162,6 @@ type Function = {
 	typeinfo: string
 }
 
-local Function = {}
-
 function Function.new(): Function
 	return {
 		data = "",
@@ -133,6 +178,11 @@ function Function.new(): Function
 	}
 end
 
+--[=[
+	@class DebugLocal
+]=]
+local DebugLocal = {}
+
 type DebugLocal = {
 	name: number,
 
@@ -141,9 +191,51 @@ type DebugLocal = {
 	endpc: number
 }
 
+function DebugLocal.new(): DebugLocal
+	return {
+		name = 0,
+		
+		reg = 0,
+		startpc = 0,
+		endpc = 0
+	}
+end
+
+--[=[
+	@class DebugUpval
+]=]
+local DebugUpval = {}
+
+--[=[
+	@within DebugUpval
+	@prop name number
+	@since v0.1.0
+]=]
 type DebugUpval = {
 	name: number
 }
+
+--[=[
+	@within DebugUpval
+	@since v0.1.0
+]=]
+function DebugUpval.new(): DebugUpval
+	return {
+		name = 0
+	}
+end
+
+--[=[
+	@class TypedLocal
+]=]
+local TypedLocal = {}
+
+--[=[
+	@within TypedLocal
+	@prop type LuauBytecodeType
+	@since v0.1.0
+]=]
+local _
 
 type TypedLocal = {
 	type: number,
@@ -152,9 +244,46 @@ type TypedLocal = {
 	endpc: number
 }
 
+--[=[
+	@within TypedLocal
+	@since v0.1.0
+]=]
+function TypedLocal.new(): TypedLocal
+	return {
+		type = 0,
+		reg = 0,
+		startpc = 0,
+		endpc = 0
+	}
+end
+
+--[=[
+	@class TypedUpval
+]=]
+local TypedUpval = {}
+
+--[=[
+	@within TypedLocal
+	@prop type LuauBytecodeType
+	@since v0.1.0
+]=]
+local _
+
 type TypedUpval = {
 	type: number
 }
+
+--[=[
+	@within TypedLocal
+	@since v0.1.0
+]=]
+function TypedUpval.new(): TypedUpval
+	return {
+		type = 0
+	}
+end
+
+local UserdataType = {}
 
 type UserdataType = {
 	name: string,
@@ -162,10 +291,34 @@ type UserdataType = {
 	used: boolean
 }
 
+function UserdataType.new(): UserdataType
+	return {
+		name = "",
+		nameRef = 0,
+		used = false
+	}
+end
+
+--[=[
+	@class Jump
+]=]
+local Jump = {}
+
 type Jump = {
 	source: number,
 	target: number
 }
+
+--[=[
+	@within Jump
+	@since v0.1.0
+]=]
+function Jump.new(source: number, target: number): Jump
+	return {
+		source = source,
+		target = target
+	}
+end
 
 type StringRefHash = (v: StringRef) -> number
 
@@ -220,7 +373,7 @@ export type BytecodeBuilder = {
 	getTotalInstructionCount: () -> number,
 	getDebugPC: () -> number,
 
-	addDebugRemark: (format: string, ...any) -> (),
+	addDebugRemark: (remark: string) -> (),
 	
 	finalize: () -> (),
 
@@ -238,6 +391,17 @@ export type BytecodeBuilder = {
 	dumpTypeInfo: () -> string,
 
 	annotateInstruction: (result: string, fid: number, instpos: number) -> (),
+
+	getImportId: (self: BytecodeBuilder, id0: number, id1: number?, id2: number?) -> (),
+
+	decomposeImportId: (self: BytecodeBuilder, ids: number, id0: number, id1: number, id2: number) -> number,
+
+	getStringHash: (self: BytecodeBuilder, key: StringRef) -> number,
+
+	getError: (self: BytecodeBuilder, message: string) -> string,
+
+	getVersion: (self: BytecodeBuilder) -> number,
+	getTypeEncodingVersion: (self: BytecodeBuilder) -> number,
 
 	functions: Vector<Function>,
 	currentFunction: number,
@@ -331,6 +495,91 @@ local function log2(v: number): ()
 	return r
 end
 
+local function writeVarInt(s: stringWrap, value: number): ()
+	while value ~= 0 do
+		s.s ..= string.char(
+			bit32.bor(
+				bit32.band(value, 127),
+				bit32.lshift(
+					btn(value > 127),
+					7
+				)
+			)
+		)
+	end
+end
+
+--[=[
+	@within BytecodeBuilder
+	@param op LuauOpcode
+	@private
+	@since v0.1.0
+	@tag local
+]=]
+local function isJumpD(op: number): boolean
+	if op == LuauOpcode.LOP_JUMP
+	or op == LuauOpcode.LOP_JUMPIF
+	or op == LuauOpcode.LOP_JUMPIFNOT
+	or op == LuauOpcode.LOP_JUMPIFEQ
+	or op == LuauOpcode.LOP_JUMPIFLE
+	or op == LuauOpcode.LOP_JUMPIFLT
+	or op == LuauOpcode.LOP_JUMPIFNOTEQ
+	or op == LuauOpcode.LOP_JUMPIFNOTLE
+	or op == LuauOpcode.LOP_JUMPIFNOTLT
+	or op == LuauOpcode.LOP_FORNPREP
+	or op == LuauOpcode.LOP_FORNLOOP
+	or op == LuauOpcode.LOP_FORGPREP
+	or op == LuauOpcode.LOP_FORGLOOP
+	or op == LuauOpcode.LOP_FORGPREP_INEXT
+	or op == LuauOpcode.LOP_FORGPREP_NEXT
+	or op == LuauOpcode.LOP_JUMPBACK
+	or op == LuauOpcode.LOP_JUMPXEQKNIL
+	or op == LuauOpcode.LOP_JUMPXEQKB
+	or op == LuauOpcode.LOP_JUMPXEQKN
+	or op == LuauOpcode.LOP_JUMPXEQKS then
+		return true
+	else
+		return false
+	end
+end
+
+--[=[
+	@within BytecodeBuilder
+	@param op LuauOpcode
+	@private
+	@since v0.1.0
+	@tag local
+]=]
+local function isSkipC(op: number): boolean
+	if op == LuauOpcode.LOP_LOADB then
+		return true
+	else
+		return false
+	end
+end
+
+--[=[
+	@within BytecodeBuilder
+	@param op LuauOpcode
+	@private
+	@since v0.1.0
+	@tag local
+]=]
+local function isFastCall(op: number): boolean
+	if op == LuauOpcode.LOP_FASTCALL
+	or op == LuauOpcode.LOP_FASTCALL1
+	or op == LuauOpcode.LOP_FASTCALL2
+	or op == LuauOpcode.LOP_FASTCALL2K then
+		return true
+	else
+		return false
+	end
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
 function BytecodeBuilder.new(encoder: BytecodeEncoder): BytecodeBuilder
 	local self: BytecodeBuilder = setmetatable({
 		constantMap = {},
@@ -525,7 +774,7 @@ end
 function prototype.tryGetUserdataTypeName(self: BytecodeBuilder, type: number): string?
 	assert(FastVariables.LuauCompileUserdataInfo)
 
-	local index = unsigned(bit32.band(type, bit32.bnot(Bytecode.LBC_TYPE_OPTIONAL_BIT) - Bytecode.LBC_TYPE_TAGGED_USERDATA_BASE))
+	local index = unsigned(bit32.band(type, bit32.bnot(LuauBytecodeType.LBC_TYPE_OPTIONAL_BIT) - LuauBytecodeType.LBC_TYPE_TAGGED_USERDATA_BASE))
 
 	if index < self.userdataTypes:size() then
 		return self.userdataTypes[index].name
@@ -706,12 +955,283 @@ function prototype.emitLabel(self: BytecodeBuilder): ()
 	return self.insns:size()
 end
 
-function prototype.patchJumpD(self: BytecodeBuilder, jumpLabel: number, targetLable: number): boolean
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.patchJumpD(self: BytecodeBuilder, jumpLabel: number, targetLabel: number): boolean
 	assert(jumpLabel < self.insns:size())
 
 	local jumpInsn = self.insns[jumpLabel]
 
-	-- Eli: TODO
+	assert(isJumpD(LUAU_INSN_OP(jumpInsn)))
+	assert(LUAU_INSN_OP(jumpInsn) == 0)
+
+	assert(targetLabel <= self.insns:size())
+
+	local offset = targetLabel - jumpLabel - 1
+
+	if int16_t(offset) == offset then
+		self.insns[jumpLabel] = bit32.bor(self.insns[jumpLabel], bit32.lshift(uint16_t(offset), 16))
+	elseif math.abs(offset) < kMaxJumpDistance then
+		-- our jump doesn't fit into 16 bits; we will need to repatch the bytecode sequence with jump trampolines, see expandJumps
+		self.hasLongJumps = true
+	else
+		return false
+	end
+
+	self.jumps:push_back(Jump.new(uint32_t(jumpLabel), uint32_t(targetLabel)))
+	return true
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.patchSkipC(self: BytecodeBuilder, jumpLabel: number, targetLabel: number): boolean
+	assert(jumpLabel < self.insns:size())
+
+	local jumpInsn = self.insns[jumpLabel]
+
+	assert(isSkipC(LUAU_INSN_OP(jumpInsn)) or isFastCall(LUAU_INSN_OP(jumpInsn)))
+	assert(LUAU_INSN_C(jumpInsn) == 0)
+
+	local offset = targetLabel - jumpLabel - 1
+
+	if uint8_t(offset) ~= offset then
+		return false
+	end
+
+	self.insns[jumpLabel] = bit32.bor(self.insns[jumpLabel], bit32.lshift(offset, 24))
+	return true
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.setFunctionTypeInfo(self: BytecodeBuilder, value: string): ()
+	self.functions:get(self.currentFunction).typeinfo = value
+end
+
+--[=[
+	@within BytecodeBuilder
+	@param type LuauBytecodeType
+	@since v0.1.0
+]=]
+function prototype.pushLocalTypeInfo(self: BytecodeBuilder, type: number, reg: number, startpc: number, endpc: number): ()
+	assert(FastVariables.LuauCompileTypeInfo)
+
+	local typedLocal = TypedLocal.new()
+	typedLocal.type = type
+	typedLocal.reg = reg
+	typedLocal.startpc = startpc
+	typedLocal.endpc = endpc
+
+	self.typedLocals:push_back(typedLocal)
+end
+
+--[=[
+	@within BytecodeBuilder
+	@param type LuauBytecodeType
+	@since v0.1.0
+]=]
+function prototype.pushUpvalTypeInfo(self: BytecodeBuilder, type: number): ()
+	assert(FastVariables.LuauCompileTypeInfo)
+
+	local upval = TypedUpval.new()
+	upval.type = type
+
+	self.typedUpvals:push_back(upval)
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.addUserdataType(self: BytecodeBuilder, name: string): number
+	assert(FastVariables.LuauCompileUserdataInfo)
+
+	local ty = UserdataType.new()
+
+	ty.name = name
+
+	self.userdataTypes:push_back(ty)
+	return uint32_t(self.userdataTypes:size() - 1)
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.useUserdataType(self: BytecodeBuilder, index: number): ()
+	assert(FastVariables.LuauCompileUserdataInfo)
+
+	self.userdataTypes:get(index).used = true
+end
+
+function prototype.setDebugFunctionName(self: BytecodeBuilder, name: StringRef): ()
+	local index = self:addStringTableEntry(name)
+
+	self.functions:get(self.currentFunction).debugname = index
+
+	if self.dumpFunctionPtr then
+		self.functions:get(self.currentFunction).dumpname = name.data
+	end
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.setDebugFunctionLineDefined(self: BytecodeBuilder, line: number): ()
+	self.functions:get(self.currentFunction).debuglinedefined = line
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.setDebugLine(self: BytecodeBuilder, line: number): ()
+	self.debugLine = line
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.pushDebugLocal(self: BytecodeBuilder, name: StringRef, reg: number, startpc: number, endpc: number): ()
+	local index = self:addStringTableEntry(name)
+
+	local debugLocal = DebugLocal.new()
+	debugLocal.name = index
+	debugLocal.reg = reg
+	debugLocal.startpc = startpc
+	debugLocal.endpc = endpc
+
+	self.debugLocals:push_back(debugLocal)
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.pushDebugUpval(self: BytecodeBuilder, name: StringRef): ()
+	local index = self:addStringTableEntry(name)
+
+	local upval = DebugUpval.new()
+	upval.name = index
+
+	self.debugUpvals:push_back(upval)
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.getInstructionCount(self: BytecodeBuilder): number
+	return self.insns:size()
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.getTotalInstructionCount(self: BytecodeBuilder): number
+	return self.totalInstructionCount
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.getDebugPC(self: BytecodeBuilder): number
+	return uint32_t(self.insns:size())
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.addDebugRemark(self: BytecodeBuilder, remark: string): ()
+	if bit32.btest(self.dumpFlags, DumpFlags.Dump_Remarks) then
+		return
+	end
+
+	local offset = #self.debugRemarkBuffer + 1
+
+	self.debugRemarkBuffer ..= remark
+
+	-- we null-terminate all remarks to avoid storing remark length
+	self.debugRemarkBuffer ..= "\0"
+
+	self.debugRemarks:push_back(Pair.new(uint32_t(self.insns:size()), uint32_t(offset)))
+	self.dumpRemarks:push_back(Pair.new(self.debugLine, self.debugRemarkBuffer:sub(offset)))
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.finalize(self: BytecodeBuilder): ()
+	assert(self.bytecode == "" :: string)
+
+	if FastVariables.LuauCompileUserdataInfo then
+		for _, ty in self.userdataTypes:data() do
+			if ty.used then
+				ty.nameRef = self:addStringTableEntry(StringRef.new(ty.name, #ty.name))
+			end
+		end
+	end
+
+	-- preallocate space for bytecode blob
+	local capacity = 16
+
+	for p in self.stringTable do
+		capacity += p.length + 2
+	end
+
+	for _, func in self.functions:data() do
+		capacity += #func.data
+	end
+
+	-- Eli: Can not reserve string space, should probably switch to buffer so `capacity` can be used.
+	
+	-- assemble final bytecode blob
+	local version = self:getVersion()
+	assert(version >= LuauBytecodeTag.LBC_VERSION_MIN and version <= LuauBytecodeTag.LBC_VERSION_MAX)
+
+	self.bytecode = string.char(version)
+
+	local typesversion = self:getTypeEncodingVersion()
+	assert(typesversion >= LuauBytecodeTag.LBC_TYPE_VERSION_MIN and typesversion <= LuauBytecodeTag.LBC_TYPE_VERSION_MAX)
+	self.bytecode ..= string.char(typesversion)
+
+	self:writeStringTable(self.bytecode)
+
+	local bytecodeWrap = {s = self.bytecode}
+
+	if FastVariables.LuauCompileTypeInfo and FastVariables.LuauCompileUserdataInfo then
+		-- Write the mapping between used type name indices and their name
+		for i, value in self.userdataTypes:data() do
+			bytecodeWrap.s ..= string.char(i + 1)
+			writeVarInt(bytecodeWrap, value.nameRef)
+		end
+
+		-- 0 marks the end of the mapping
+		bytecodeWrap.s ..= string.char(0)
+	end
+
+	writeVarInt(bytecodeWrap, uint32_t(self.functions:size()))
+
+	for _, func in self.functions:data() do
+		bytecodeWrap.s ..= func.data
+	end
+
+	assert(self.mainFunction < self.functions:size())
+	writeVarInt(bytecodeWrap, self.mainFunction)
+
+	self.bytecode = bytecodeWrap.s
 end
 
 return BytecodeBuilder

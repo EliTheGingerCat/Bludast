@@ -74,7 +74,7 @@ local HotComment = require("./HotComment")
 local Lexeme = require("./Lexeme")
 local Lexer = require("./Lexer")
 local Location = require("./Location")
-local NumberUtilities = require("@Shared/NumberUtilities")
+local NumberConversions = require("@Polyfill/NumberConversions")
 local Pair = require("@Polyfill/Pair")
 local ParseError = require("./ParseError")
 local ParseOptions = require("./ParseOptions")
@@ -116,7 +116,7 @@ type ParseOptions = ParseOptions.ParseOptions
 type ParseResult = ParseResult.ParseResult
 type Position = Position.Position
 type TempVector<T> = TempVector.TempVector<T>
-local unsigned = NumberUtilities.unsigned
+local unsigned = NumberConversions.unsigned
 type Vector<T> = Vector.Vector<T>
 
 --[=[
@@ -3323,7 +3323,7 @@ function prototype.parseTypeParams(self: Parser): {AstTypeOrPack}
 				parameters:push_back(AstTypeOrPack.new(nil, typePack))
 			elseif self.lexer:current().type == ("("):byte() then
 				local results = self:parseTypeOrPack()
-				local typeAst = results.first
+				local typeAst = results.type
 				local typePack = results.typePack
 
 				if typePack then
