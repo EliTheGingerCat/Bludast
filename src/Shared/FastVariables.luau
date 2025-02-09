@@ -62,6 +62,14 @@ return {
 
 	--[=[
 		@within FastVariables
+		@prop LuauCompileTempTypeInfo false
+		@readonly
+		@since v0.1.0
+	]=]
+	LuauCompileTempTypeInfo = false,
+
+	--[=[
+		@within FastVariables
 		@prop LuauCompileTypeInfo false
 		@readonly
 		@since v0.1.0

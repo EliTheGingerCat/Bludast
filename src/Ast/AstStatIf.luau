@@ -1,25 +1,17 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstStatBlock = require("./AstStatBlock")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstStat = AstStat.AstStat
 type AstStatBlock = AstStatBlock.AstStatBlock
 type Location = Location.Location
 
-export type AstStatIf = AstStat & {
-	condition: AstExpr,
-	thenbody: AstStatBlock,
-	elsebody: AstStat,
-
-	thenLocation: Location?,
-
-	-- Active for 'elseif' as well
-	elseLocation: Location?
-}
+export type AstStatIf = AstNodeTypes.AstStatIf
 
 --[=[
 	@class AstStatIf
@@ -43,7 +35,7 @@ function AstStatIf.new(location: Location, condition: AstExpr, thenbody: AstStat
 end
 
 function prototype.visit(self: AstStatIf, visitor: AstVisitor.AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstStatIf(self) then
 		self.condition:visit(visitor)
 		self.thenbody:visit(visitor)
 

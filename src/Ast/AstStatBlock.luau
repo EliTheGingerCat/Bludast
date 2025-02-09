@@ -1,26 +1,12 @@
 local AstClassIndex = require("./AstClassIndex")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstStat = AstStat.AstStat
 
-export type AstStatBlock = AstStat & {
-	body: {AstStat},
-
-	--[=[
-	@within AstStatBlock
-	@prop hasEnd boolean
-	@since v0.1.0
-
-	Indicates whether or not this block has been terminated in a syntactically valid way.
-	
-	This is usually but not always done with the 'end' keyword.  AstStatIf and AstStatRepeat are the two main exceptions to this.
-	
-	The 'then' clause of an if statement can properly be closed by the keywords 'else' or 'elseif'.  A 'repeat' loop's body is closed with the 'until' keyword.
-	]=]
-	hasEnd: boolean
-}
+export type AstStatBlock = AstNodeTypes.AstStatBlock
 
 --[=[
 	@class AstStatBlock
@@ -43,7 +29,7 @@ function interface.new(location: Location.Location, body: {AstStat}, hasEnd: boo
 end
 
 function prototype.visit(self: AstStatBlock, visitor: AstVisitor.AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstStatBlock(self) then
 		for _, stat in self.body do
 			stat:visit(visitor)
 		end

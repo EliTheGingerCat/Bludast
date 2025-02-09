@@ -4,12 +4,13 @@ local AstClassIndex = require("./AstClassIndex")
 local AstGenericType = require("./AstGenericType")
 local AstGenericTypePack = require("./AstGenericTypePack")
 local AstName = require("./AstName")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstTypeList = require("./AstTypeList")
 local AstUtilities = require("./AstUtilities")
 local AstVisitor = require("./AstVisitor")
 local FastVariables = require("@Shared/FastVariables")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstArgumentName = AstArgumentName.AstArgumentName
 type AstAttr = AstAttr.AstAttr
@@ -21,28 +22,7 @@ type AstTypeList = AstTypeList.AstTypeList
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstStatDeclareFunction = AstStat & {
-	attributes: {AstAttr},
-	name: AstName,
-	generics: {AstGenericType},
-	genericPacks: {AstGenericTypePack},
-	params: AstTypeList,
-	paramNames: {AstArgumentName?},
-	returnTypes: AstTypeList,
-
-	--[=[
-		@within AstTypeFunction
-		@method isCheckedFunction
-		@return boolean
-
-		Whether the `@checked` attribute was applied to the function, which looks like:
-
-		```lua
-		@checked declare function name() -> ()
-		```
-	]=]
-	isCheckedFunction: (self: AstStatDeclareFunction) -> boolean
-}
+export type AstStatDeclareFunction = AstNodeTypes.AstStatDeclareFunction
 
 --[=[
 	@class AstStatDeclareFunction
@@ -89,7 +69,7 @@ end :: (
 )
 
 function prototype.visit(self: AstStatDeclareFunction, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstStatDeclareFunction(self) then
 		AstUtilities.visitTypeList(visitor, self.params)
 		AstUtilities.visitTypeList(visitor, self.returnTypes)
 	end

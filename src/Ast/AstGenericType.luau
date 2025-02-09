@@ -1,9 +1,9 @@
 local AstName = require("./AstName")
-local AstType = require("./AstType")
-local Location = require("./Location")
+local AstNodeTypes = require("./AstNodeTypes")
+local Location = require("@Shared/Location")
 
 type AstName = AstName.AstName
-type AstType = AstType.AstType
+type AstType = AstNodeTypes.AstType
 type Location = Location.Location
 
 --[=[
@@ -20,6 +20,6 @@ function AstGenericType.new(name: AstName, location: Location, defaultValue: Ast
 		defaultValue = defaultValue
 	}
 end
-export type AstGenericType = typeof(AstGenericType.new(...))
+export type AstGenericType = AstNodeTypes.AstGenericType
 
 return AstGenericType

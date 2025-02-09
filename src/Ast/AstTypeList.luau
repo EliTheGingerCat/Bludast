@@ -1,3 +1,4 @@
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 local AstTypePack = require("./AstTypePack")
 
@@ -12,21 +13,7 @@ type AstTypePack = AstTypePack.AstTypePack
 ]=]
 local AstTypeList = {}
 
-export type AstTypeList = {
-	--[=[
-		@within AstTypeList
-		@prop types {AstType}
-	]=]
-	types: {AstType},
-
-	--[=[
-		@within AstTypeList
-		@prop tailType AstTypePack?
-
-		Nil indicates no tail, not an untyped tail.
-	]=]
-	tailType: AstTypePack?
-}
+export type AstTypeList = AstNodeTypes.AstTypeList
 
 --[=[
 	@within AstTypeList

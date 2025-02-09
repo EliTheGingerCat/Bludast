@@ -1,10 +1,11 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
 local AstLocal = require("./AstLocal")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstStatBlock = require("./AstStatBlock")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstLocal = AstLocal.AstLocal
@@ -49,7 +50,7 @@ function AstStatForIn.new(location: Location, vars: {AstLocal}, values: {AstExpr
 end
 
 function prototype.visit(self: AstStatForIn, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstStatForIn(self) then
 		for _, var in self.vars do
 			if var.annotation then
 				-- Eli NEW_SOLVER

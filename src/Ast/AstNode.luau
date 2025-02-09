@@ -1,6 +1,8 @@
 local AstClassIndex = require("./AstClassIndex")
-local Location = require("./Location")
+local AstNodeTypes = require("./AstNodeTypes")
+local Location = require("@Shared/Location")
 
+export type AstNode = AstNodeTypes.AstNode
 type Location = Location.Location
 
 --[=[
@@ -12,77 +14,6 @@ type Location = Location.Location
 type class<T> = {
 	ClassIndex: number,
 	ClassType: T
-}
-
---[=[
-	@within AstNode
-	@method visit
-	@param visitor AstVisitor
-	@since v0.1.0
-]=]
-
---[=[
-	@within AstNode
-	@method asStat
-	@return AstStat
-	@since v0.1.0
-
-	Returns self. This is essentially a type assertion.
-]=]
-
---[=[
-	@within AstNode
-	@method asType
-	@return AstType
-	@since v0.1.0
-
-	Same as [asStat](AstNode#asStat).
-]=]
-
---[=[
-	@within AstNode
-	@method asAttr
-	@return AstAttr
-	@since v0.1.0
-
-	Same as [asStat](AstNode#asStat).
-]=]
-
---[=[
-	@within AstNode
-	@prop classIndex number
-	@readonly
-	@since v0.1.0
-
-	Used in [is](AstNode#is) and [as](AstNode#as).
-]=]
-
---[=[
-	@within AstNode
-	@prop location Location
-	@readonly
-	@since v0.1.0
-]=]
-local _
-
-export type AstNode = {
-	visit: (self: AstNode, visitor: AstVisitor) -> (),
-	asStat: (self: AstNode) -> AstStat,
-	asType: (self: AstNode) -> AstType,
-	asAttr: (self: AstNode) -> AstAttr,
-	is: <T>(self: AstNode, class: class<T>) -> boolean,
-	as: <T>(self: AstNode, class: class<T>) -> T?,
-
-	classIndex: number,
-	location: Location
-}
-
--- Defined a second time here to avoid cyclic since I think it would be weird for AstVisitor type to be accessed from AstNode.
-type AstVisitor = {
-	visit: (
-		self: AstVisitor,
-		node: AstNode
-	) -> boolean
 }
 
 -- Define some stuff again to avoid cyclic dependencies.

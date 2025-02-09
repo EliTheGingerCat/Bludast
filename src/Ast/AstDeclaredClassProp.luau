@@ -1,4 +1,5 @@
 local AstName = require("./AstName")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 
 type AstName = AstName.AstName
@@ -18,6 +19,6 @@ function AstDeclaredClassProp.new(name: AstName, ty: AstType, isMethod: boolean)
 		isMethod = isMethod
 	}
 end
-export type AstDeclaredClassProp = typeof(AstDeclaredClassProp.new(...))
+export type AstDeclaredClassProp = AstNodeTypes.AstDeclaredClassProp
 
 return AstDeclaredClassProp

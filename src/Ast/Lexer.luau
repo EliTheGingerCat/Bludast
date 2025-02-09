@@ -1,8 +1,8 @@
 local AstNameTable = require("./AstNameTable")
 local FastVariables = require("@Shared/FastVariables")
 local Lexeme = require("./Lexeme")
-local Location = require("./Location")
-local Position = require("./Position")
+local Location = require("@Shared/Location")
+local Position = require("@Shared/Position")
 local NumberConversions = require("@Polyfill/NumberConversions")
 
 type AstNameTable = AstNameTable.AstNameTable

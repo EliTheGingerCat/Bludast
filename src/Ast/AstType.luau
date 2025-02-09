@@ -1,10 +1,9 @@
 local AstNode = require("./AstNode")
-local Location = require("./Location")
+local AstNodeTypes = require("./AstNodeTypes")
+local Location = require("@Shared/Location")
 
-type AstNode = AstNode.AstNode
+export type AstType = AstNodeTypes.AstType
 type Location = Location.Location
-
-export type AstType = AstNode
 
 local AstType = {}
 local prototype = setmetatable({}, AstNode.metatable)

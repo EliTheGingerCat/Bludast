@@ -1,20 +1,13 @@
 local AstName = require("./AstName")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstName = AstName.AstName
 type AstType = AstType.AstType
 type Location = Location.Location
 
-export type AstLocal = {
-	name: AstName,
-	location: Location,
-	shadow: AstLocal?,
-	functionDepth: number,
-	loopDepth: number,
-
-	annotation: AstType?
-}
+export type AstLocal = AstNodeTypes.AstLocal
 
 local AstLocal = {}
 

@@ -1,12 +1,10 @@
 local AstNode = require("./AstNode")
-local Location = require("./Location")
+local AstNodeTypes = require("./AstNodeTypes")
+local Location = require("@Shared/Location")
 
 type AstNode = AstNode.AstNode
+export type AstStat = AstNodeTypes.AstStat
 type Location = Location.Location
-
-export type AstStat = AstNode & {
-	hasSemicolon: boolean
-}
 
 --[=[
 	@class AstStat

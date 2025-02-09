@@ -1,5 +1,5 @@
 local AstNode = require("./AstNode")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstNode = AstNode.AstNode
 type Location = Location.Location

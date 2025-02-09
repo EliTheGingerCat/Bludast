@@ -1,7 +1,8 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstVisitor = AstVisitor.AstVisitor
@@ -13,11 +14,7 @@ type Location = Location.Location
 
 	Class from [`/Ast/src/Ast.cpp`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/src/Ast.cpp#L279-L294) and [`/Ast/include/Luau/Ast.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Ast.h#L494-L528).
 ]=]
-export type AstExprBinary = AstExpr & {
-	op: number,
-	left: AstExpr,
-	right: AstExpr
-}
+export type AstExprBinary = AstNodeTypes.AstExprBinary
 
 local AstExprBinary = {
 	ClassIndex = AstClassIndex(),
@@ -56,7 +53,7 @@ function AstExprBinary.new(location: Location, op: number, left: AstExpr, right:
 end
 
 function prototype.visit(self: AstExprBinary, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstExprBinary(self) then
 		self.left:visit(visitor)
 		self.right:visit(visitor)
 	end

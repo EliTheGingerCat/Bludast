@@ -1,15 +1,14 @@
 local AstClassIndex = require("./AstClassIndex")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstTypeSingletonString = AstType & {
-	value: string
-}
+export type AstTypeSingletonString = AstNodeTypes.AstTypeSingletonString
 
 --[=[
 	@class AstTypeSingletonString
@@ -43,7 +42,7 @@ function AstTypeSingletonString.new(location: Location, value: string): AstTypeS
 end
 
 function prototype.visitor(self: AstTypeSingletonString, visitor: AstVisitor): ()
-	visitor:visit(self)
+	visitor:visitAstTypeSingletonString(self)
 end
 
 return AstTypeSingletonString

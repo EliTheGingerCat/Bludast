@@ -1,6 +1,6 @@
 local Confusables = require("./Confusables")
 local FastVariables = require("@Shared/FastVariables")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type Location = Location.Location
 

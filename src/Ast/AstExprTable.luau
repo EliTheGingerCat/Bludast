@@ -1,37 +1,15 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstVisitor = AstVisitor.AstVisitor
+type Item = AstNodeTypes.TableItem
 type Location = Location.Location
 
-export type Item = {
-	--[=[
-		@within AstExprTable_Item
-		@prop kind number
-
-		Corresponds to (kind enum)[AstExprTable_Item::Kind].
-	]=]
-	kind: number,
-
-	--[=[
-		@within AstExprTable_Item
-		@prop key AstExpr?
-	]=]
-	key: AstExpr?,
-
-	--[=[
-		@within AstExprTable_Item
-		@prop value AstExpr?
-	]=]
-	value: AstExpr
-}
-
-export type AstExprTable = AstExpr & {
-	items: {Item}
-}
+export type AstExprTable = AstNodeTypes.AstExprTable
 
 --[=[
 	@class AstExprTable_Item
@@ -110,7 +88,7 @@ function AstExprTable.new(location: Location, items: {Item}): AstExprTable
 end
 
 function prototype.visit(self: AstExprTable, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstExprTable(self) then
 		for _, item in self.items do
 			if item.key then
 				item.key:visit(visitor)

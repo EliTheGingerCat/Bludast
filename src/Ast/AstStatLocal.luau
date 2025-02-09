@@ -1,9 +1,10 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
 local AstLocal = require("./AstLocal")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstLocal = AstLocal.AstLocal
@@ -11,12 +12,7 @@ type AstStat = AstStat.AstStat
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstStatLocal = AstStat & {
-	vars: {AstLocal},
-	values: {AstExpr},
-
-	equalsSignLocation: Location?
-}
+export type AstStatLocal = AstNodeTypes.AstStatLocal
 
 --[=[
 	@class AstStatLocal
@@ -38,7 +34,7 @@ function AstStatLocal.new(location: Location, vars: {AstLocal}, values: {AstExpr
 end
 
 function prototype.visit(self: AstStatLocal, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstStatLocal(self) then
 		for _, var in self.vars do
 			if var.annotation then
 				-- Eli NEW_SOLVER

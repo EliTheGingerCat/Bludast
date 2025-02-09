@@ -1,9 +1,10 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
 local AstName = require("./AstName")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
-local Position = require("./Position")
+local Location = require("@Shared/Location")
+local Position = require("@Shared/Position")
 
 type AstExpr = AstExpr.AstExpr
 type AstName = AstName.AstName
@@ -11,13 +12,7 @@ type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 type Position = Position.Position
 
-export type AstExprIndexName = AstExpr & {
-	expr: AstExpr,
-	index: AstName,
-	indexLocation: Location,
-	opPosition: Position,
-	op: string
-}
+export type AstExprIndexName = AstNodeTypes.AstExprIndexName
 
 --[=[
 	@class AstExprIndexName
@@ -41,7 +36,7 @@ function AstExprIndexName.new(location: Location, expr: AstExpr, index: AstName,
 end
 
 function prototype.visit(self: AstExprIndexName, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstExprIndexName(self) then
 		self.expr:visit(visitor)
 	end
 end

@@ -3,8 +3,8 @@
 local AstNameTable = require("@Ast/AstNameTable")
 local Lexeme = require("@Ast/Lexeme")
 local Lexer = require("@Ast/Lexer")
-local Location = require("@Ast/Location")
-local Position = require("@Ast/Position")
+local Location = require("@Shared/Location")
+local Position = require("@Shared/Position")
 
 return {
 	broken_string_works = function()

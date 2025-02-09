@@ -1,22 +1,17 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstStatBlock = require("./AstStatBlock")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstStat = AstStat.AstStat
 type AstStatBlock = AstStatBlock.AstStatBlock
 type Location = Location.Location
 
-export type AstStatWhile = AstStat & {
-	condition: AstExpr,
-	body: AstStatBlock,
-
-	hasDo: boolean,
-	doLocation: Location
-}
+export type AstStatWhile = AstNodeTypes.AstStatWhile
 
 --[=[
 	@class AstStatWhile
@@ -39,7 +34,7 @@ function AstStatWhile.new(location: Location, condition: AstExpr, body: AstStatB
 end
 
 function prototype.visit(self: AstStatWhile, visitor: AstVisitor.AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstStatWhile(self) then
 		self.condition:visit(visitor)
 		self.body:visit(visitor)
 	end

@@ -327,70 +327,70 @@ type ConstantKeyHash = (key: ConstantKey) -> number
 type TableShapeHash = (v: TableShape) -> number
 
 export type BytecodeBuilder = {
-	beginFunction: (numparams: number, isvararg: boolean?) -> number,
-	endFunction: (maxstacksize: number, numupvalues: number, flags: number?) -> (),
+	beginFunction: (self: BytecodeBuilder, numparams: number, isvararg: boolean?) -> number,
+	endFunction: (self: BytecodeBuilder, maxstacksize: number, numupvalues: number, flags: number?) -> (),
 
-	setMainFunction: (fid: number) -> (),
+	setMainFunction: (self: BytecodeBuilder, fid: number) -> (),
 
-	addConstantNil: () -> number,
-	addConstantBoolean: (value: boolean) -> number,
-	addConstantNumber: (value: number) -> number,
-	addConstantVector: (x: number, y: number, z: number, w: number) -> number,
-	addConstantString: (value: StringRef) -> number,
-	addImport: (iid: number) -> number,
-	addConstantTable: (shape: TableShape) -> number,
-	addConstantClosure: (fid: number) -> number,
+	addConstantNil: (self: BytecodeBuilder) -> number,
+	addConstantBoolean: (self: BytecodeBuilder, value: boolean) -> number,
+	addConstantNumber: (self: BytecodeBuilder, value: number) -> number,
+	addConstantVector: (self: BytecodeBuilder, x: number, y: number, z: number, w: number) -> number,
+	addConstantString: (self: BytecodeBuilder, value: StringRef) -> number,
+	addImport: (self: BytecodeBuilder, iid: number) -> number,
+	addConstantTable: (self: BytecodeBuilder, shape: TableShape) -> number,
+	addConstantClosure: (self: BytecodeBuilder, fid: number) -> number,
 
-	addChildFunction: (fid: number) -> number,
+	addChildFunction: (self: BytecodeBuilder, fid: number) -> number,
 
-	emitABC: (op: number, a: number, b: number, c: number) -> (),
-	emitAD: (op: number, a: number, d: number) -> (),
-	emitE: (op: number, e: number) -> (),
-	emitAux: (aux: number) -> (),
+	emitABC: (self: BytecodeBuilder, op: number, a: number, b: number, c: number) -> (),
+	emitAD: (self: BytecodeBuilder, op: number, a: number, d: number) -> (),
+	emitE: (self: BytecodeBuilder, op: number, e: number) -> (),
+	emitAux: (self: BytecodeBuilder, aux: number) -> (),
 
-	emitLabel: () -> number,
+	emitLabel: (self: BytecodeBuilder) -> number,
 
-	patchJumpD: (jumpLabel: number, targetLabel: number) -> boolean,
-	patchSkipC: (jumpLabel: number, targetLabel: number) -> boolean,
+	patchJumpD: (self: BytecodeBuilder, jumpLabel: number, targetLabel: number) -> boolean,
+	patchSkipC: (self: BytecodeBuilder, jumpLabel: number, targetLabel: number) -> boolean,
 
-	foldJumps: () -> (),
-	expandJumps: () -> (),
+	foldJumps: (self: BytecodeBuilder) -> (),
+	expandJumps: (self: BytecodeBuilder) -> (),
 
-	setFunctionTypeInfo: (value: string) -> (),
-	pushLocalTypeInfo: (type: number, reg: number, startpc: number, endpc: number) -> (),
-	pushUpvalTypeInfo: (type: number) -> (),
+	setFunctionTypeInfo: (self: BytecodeBuilder, value: string) -> (),
+	pushLocalTypeInfo: (self: BytecodeBuilder, type: number, reg: number, startpc: number, endpc: number) -> (),
+	pushUpvalTypeInfo: (self: BytecodeBuilder, type: number) -> (),
 
-	addUserdataType: (name: string) -> number,
-	useUserdataType: (index: number) -> (),
+	addUserdataType: (self: BytecodeBuilder, name: string) -> number,
+	useUserdataType: (self: BytecodeBuilder, index: number) -> (),
 
-	setDebugFunctionName: (name: StringRef) -> (),
-	setDebugFunctionLineDefined: (line: number) -> (),
-	setDebugLine: (line: number) -> (),
-	pushDebugLocal: (name: StringRef, reg: number, startpc: number, endpc: number) -> (),
-	pushDebugUpval: (name: StringRef) -> (),
+	setDebugFunctionName: (self: BytecodeBuilder, name: StringRef) -> (),
+	setDebugFunctionLineDefined: (self: BytecodeBuilder, line: number) -> (),
+	setDebugLine: (self: BytecodeBuilder, line: number) -> (),
+	pushDebugLocal: (self: BytecodeBuilder, name: StringRef, reg: number, startpc: number, endpc: number) -> (),
+	pushDebugUpval: (self: BytecodeBuilder, name: StringRef) -> (),
 
-	getInstructionCount: () -> number,
-	getTotalInstructionCount: () -> number,
-	getDebugPC: () -> number,
+	getInstructionCount: (self: BytecodeBuilder) -> number,
+	getTotalInstructionCount: (self: BytecodeBuilder) -> number,
+	getDebugPC: (self: BytecodeBuilder) -> number,
 
-	addDebugRemark: (remark: string) -> (),
+	addDebugRemark: (self: BytecodeBuilder, remark: string) -> (),
 	
-	finalize: () -> (),
+	finalize: (self: BytecodeBuilder) -> (),
 
-	setDumpFlags: (flags: number) -> (),
+	setDumpFlags: (self: BytecodeBuilder, flags: number) -> (),
 
-	setDumpSource: (source: string) -> (),
+	setDumpSource: (self: BytecodeBuilder, source: string) -> (),
 
-	needsDebugRemarks: () -> boolean,
+	needsDebugRemarks: (self: BytecodeBuilder) -> boolean,
 
-	getBytecode: () -> string,
+	getBytecode: (self: BytecodeBuilder) -> string,
 
-	dumpFunction: (id: number) -> string,
-	dumpEverything: () -> string,
-	dumpSourceRemarks: () -> string,
-	dumpTypeInfo: () -> string,
+	dumpFunction: (self: BytecodeBuilder, id: number) -> string,
+	dumpEverything: (self: BytecodeBuilder) -> string,
+	dumpSourceRemarks: (self: BytecodeBuilder) -> string,
+	dumpTypeInfo: (self: BytecodeBuilder) -> string,
 
-	annotateInstruction: (result: string, fid: number, instpos: number) -> (),
+	annotateInstruction: (self: BytecodeBuilder, result: string, fid: number, instpos: number) -> (),
 
 	getImportId: (self: BytecodeBuilder, id0: number, id1: number?, id2: number?) -> (),
 

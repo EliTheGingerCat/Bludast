@@ -1,9 +1,10 @@
 local AstClassIndex = require("./AstClassIndex")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstTableIndexer = require("./AstTableIndexer")
 local AstTableProp = require("./AstTableProp")
 local AstType = require("./AstType")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstTableIndexer = AstTableIndexer.AstTableIndexer
 type AstTableProp = AstTableProp.AstTableProp
@@ -11,10 +12,7 @@ type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstTypeTable = AstType & {
-	props: {AstTableProp},
-	indexer: AstTableIndexer
-}
+export type AstTypeTable = AstNodeTypes.AstTypeTable
 
 --[=[
 	@class AstTypeTable
@@ -35,7 +33,7 @@ function AstTypeTable.new(location: Location, props: {AstTableProp}, indexer: As
 end
 
 function prototype.visit(self: AstTypeTable, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstTypeTable(self) then
 		for _, prop in self.props do
 			-- Eli: NEW_SOLVER
 			prop.type:visit(visitor)

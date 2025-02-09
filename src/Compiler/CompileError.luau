@@ -3,17 +3,17 @@ local Location = require("@Shared/Location")
 type Location = Location.Location
 
 --[=[
-	@class ParseError
-	Class from `root/Ast/src/Parser.cpp`.
+	@class CompileError
+	Class from `root/Compiler/src/Compiler.cpp`.
 ]=]
 
-local ParseError = {}
+local CompileError = {}
 local prototype = {}
 local metatable = {__index = prototype}
 
-export type ParseError = typeof(setmetatable({} :: {
+export type CompileError = typeof(setmetatable({} :: {
 	--[=[
-		@within ParseError
+		@within CompileError
 		@prop location Location
 		@readonly
 		@private
@@ -22,7 +22,7 @@ export type ParseError = typeof(setmetatable({} :: {
 	location: Location,
 
 	--[=[
-		@within ParseError
+		@within CompileError
 		@prop message string
 		@readonly
 		@private
@@ -32,12 +32,12 @@ export type ParseError = typeof(setmetatable({} :: {
 }, metatable))
 
 --[=[
-	@within ParseError
+	@within CompileError
 	@function new
 	@param location Location
 	@param message string
 ]=]
-function ParseError.new(location: Location, message: string)
+function CompileError.new(location: Location, message: string)
 	return setmetatable({
 		location = location,
 		message = message
@@ -45,47 +45,37 @@ function ParseError.new(location: Location, message: string)
 end
 
 --[=[
-	@within ParseError
+	@within CompileError
 	@function raise
 	@param location Location
 	@param format string
 	@param ... any
 	@since v0.1.0
 ]=]
-function ParseError.raise(location: Location, format: string, ...: any): ()
+function CompileError.raise(location: Location, format: string, ...: any): ()
 	local message = format:format(...)
 
-	error(ParseError.new(location, message))
+	error(CompileError.new(location, message))
 end
 
 --[=[
-	@within ParseError
+	@within CompileError
 	@method getLocation
 	@return Location
 	@since v0.1.0
 ]=]
-function prototype.getLocation(self: ParseError): Location
+function prototype.getLocation(self: CompileError): Location
 	return self.location
 end
 
 --[=[
-	@within ParseError
-	@method getMessage
-	@return string
-	@since v0.1.0
-]=]
-function prototype.getMessage(self: ParseError): string
-	return self.message
-end
-
---[=[
-	@within ParseError
+	@within CompileError
 	@method what
 	@return string
 	@since v0.1.0
-
-	Same as ParseError:getMessage() though in the C++ version it returns the message as a C string.
 ]=]
-prototype.what = prototype.getMessage
+function prototype.what(self: CompileError): string
+	return self.message
+end
 
-return ParseError
+return CompileError

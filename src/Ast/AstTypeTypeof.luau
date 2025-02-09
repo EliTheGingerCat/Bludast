@@ -1,17 +1,16 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstTypeTypeof = AstType & {
-	expr: AstExpr
-}
+export type AstTypeTypeof = AstNodeTypes.AstTypeTypeof
 
 --[=[
 	@class AstTypeTypeof
@@ -31,7 +30,7 @@ function AstTypeTypeof.new(location: Location, expr: AstExpr): AstTypeTypeof
 end
 
 function prototype.visit(self: AstTypeTypeof, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstTypeTypeof(self) then
 		self.expr:visit(visitor)
 	end
 end

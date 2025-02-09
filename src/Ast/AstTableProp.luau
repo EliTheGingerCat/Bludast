@@ -1,47 +1,13 @@
 local AstName = require("./AstName")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstName = AstName.AstName
 type AstType = AstType.AstType
 type Location = Location.Location
 
-export type AstTableProp = {
-	--[=[
-		@within AstTableProp
-		@prop name AstName
-		@since v0.1.0
-	]=]
-	name: AstName,
-	
-	--[=[
-		@within AstTableProp
-		@prop location Location
-		@since v0.1.0
-	]=]
-	location: Location,
-
-	--[=[
-		@within AstTableProp
-		@prop type AstType
-		@since v0.1.0
-	]=]
-	type: AstType,
-
-	--[=[
-		@within AstTableProp
-		@prop access number
-		@since v0.1.0
-	]=]
-	access: number,
-
-	--[=[
-		@within AstTableProp
-		@prop accessLocation Location?
-		@since v0.1.0
-	]=]
-	accessLocation: Location?
-}
+export type AstTableProp = AstNodeTypes.AstTableProp
 
 --[=[
 	@class AstTableProp

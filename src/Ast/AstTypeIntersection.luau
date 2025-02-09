@@ -1,15 +1,14 @@
 local AstClassIndex = require("./AstClassIndex")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstTypeIntersection = AstType & {
-	types: {AstType}
-}
+export type AstTypeIntersection = AstNodeTypes.AstTypeIntersection
 
 --[=[
 	@class AstTypeIntersection
@@ -29,7 +28,7 @@ function AstTypeIntersection.new(location: Location, types: {AstType}): AstTypeI
 end
 
 function prototype.visit(self: AstTypeIntersection, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstTypeIntersection(self) then
 		for _, typeAst in self.types do
 			typeAst:visit(visitor)
 		end

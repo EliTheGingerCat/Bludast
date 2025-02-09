@@ -1,17 +1,13 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type Location = Location.Location
 
-export type AstExprCall = AstExpr & {
-	func: AstExpr,
-	args: {AstExpr},
-	self: boolean,
-	argLocation: Location
-}
+export type AstExprCall = AstNodeTypes.AstExprCall
 
 --[=[
 	@class AstExprCall
@@ -36,7 +32,7 @@ function AstExprCall.new(location: Location, func: AstExpr, args: {AstExpr}, sel
 end
 
 function prototype.visit(self: AstExprCall, visitor: AstVisitor.AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstExprCall(self) then
 		self.func:visit(visitor)
 
 		for _, arg in self.args do

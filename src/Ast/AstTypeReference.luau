@@ -3,7 +3,7 @@ local AstName = require("./AstName")
 local AstType = require("./AstType")
 local AstTypeOrPack = require("./AstTypeOrPack")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstName = AstName.AstName
 type AstType = AstType.AstType
@@ -43,7 +43,7 @@ function AstTypeReference.new(location: Location, prefix: AstName?, name: AstNam
 end
 
 function prototype.visit(self: AstTypeReference, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstTypeReference(self) then
 		for _, param in self.parameters do
 			if param.type then
 				-- Eli: NEW_SOLVER

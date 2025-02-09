@@ -1,16 +1,14 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstExprInterpString = AstExpr & {
-	strings: {string},
-	expressions: {AstExpr}
-}
+export type AstExprInterpString = AstNodeTypes.AstExprInterpString
 
 --[=[
 	@class AstExprInterpString
@@ -46,7 +44,7 @@ end
 	@param visitor AstVisitor
 ]=]
 function prototype.visit(self: AstExprInterpString, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstExprInterpString(self) then
 		for _, expr in self.expressions do
 			expr:visit(visitor)
 		end

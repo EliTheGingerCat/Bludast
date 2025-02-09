@@ -1,13 +1,14 @@
 local AstClassIndex = require("./AstClassIndex")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstStat = AstStat.AstStat
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstStatBreak = AstStat
+export type AstStatBreak = AstNodeTypes.AstStatBreak
 
 --[=[
 	@class AstStatBreak
@@ -24,7 +25,7 @@ function AstStatBreak.new(location: Location): AstStatBreak
 end
 
 function prototype.visit(self: AstStatBreak, visitor: AstVisitor): ()
-	visitor:visit(self)
+	visitor:visitAstStatBreak(self)
 end
 
 return AstStatBreak

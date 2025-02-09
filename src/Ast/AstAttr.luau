@@ -1,15 +1,13 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstNode = require("./AstNode")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
-type AstNode = AstNode.AstNode
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstAttr = AstNode & {
-	type: number
-}
+export type AstAttr = AstNodeTypes.AstAttr
 
 --[=[
 	@class AstAttr
@@ -40,7 +38,7 @@ function prototype.asAttr(self: AstAttr): AstAttr
 end
 
 function prototype.visit(self: AstAttr, visitor: AstVisitor): ()
-	visitor:visit(self)
+	visitor:visitAstAttr(self)
 end
 
 return interface

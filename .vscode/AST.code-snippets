@@ -25,7 +25,7 @@
 			"local AstClassIndex = require(\"./AstClassIndex\")",
 			"local ${2:super} = require(\"./${2:super}\")",
 			"local AstVisitor = require(\"./AstVisitor\")",
-			"local Location = require(\"./Location\")",
+			"local Location = require(\"@Shared/Location\")",
 			"",
 			"type ${2:super} = ${2:super}.${2:super}",
 			"type AstVisitor = AstVisitor.AstVisitor",

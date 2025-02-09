@@ -1,15 +1,14 @@
 local AstClassIndex = require("./AstClassIndex")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstTypeSingletonBool = AstType & {
-	value: boolean
-}
+export type AstTypeSingletonBool = AstNodeTypes.AstTypeSingletonBool
 
 --[=[
 	@class AstTypeSingletonBool
@@ -52,7 +51,7 @@ function AstTypeSingletonBool.new(location: Location, value: boolean): AstTypeSi
 end
 
 function prototype.visitor(self: AstTypeSingletonBool, visitor: AstVisitor): ()
-	visitor:visit(self)
+	visitor:visitAstTypeSingletonBool(self)
 end
 
 return AstTypeSingletonBool

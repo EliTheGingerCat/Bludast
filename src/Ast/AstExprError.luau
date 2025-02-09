@@ -1,16 +1,14 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstExprError = AstExpr & {
-	expressions: {AstExpr},
-	messageIndex: number
-}
+export type AstExprError = AstNodeTypes.AstExprError
 
 --[=[
 	@class AstExprError
@@ -31,7 +29,7 @@ function AstExprError.new(location: Location, expressions: {AstExpr}, messageInd
 end
 
 function prototype.visit(self: AstExprError, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstExprError(self) then
 		for _, expression in self.expressions do
 			expression:visit(visitor)
 		end

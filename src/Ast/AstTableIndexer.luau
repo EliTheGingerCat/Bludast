@@ -1,17 +1,11 @@
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstType = AstType.AstType
 type Location = Location.Location
 
-export type AstTableIndexer = {
-	indexType: AstType,
-	resultType: AstType,
-	location: Location,
-
-	access: number,
-	accessLocation: Location?
-}
+export type AstTableIndexer = AstNodeTypes.AstTableIndexer
 
 --[=[
 	@class AstTableIndexer

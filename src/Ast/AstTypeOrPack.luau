@@ -1,3 +1,4 @@
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 local AstTypePack = require("./AstTypePack")
 
@@ -14,19 +15,7 @@ type AstTypePack = AstTypePack.AstTypePack
 ]=]
 local AstTypeOrPack = {}
 
-export type AstTypeOrPack = {
-	--[=[
-		@within AstTypeOrPack
-		@prop type AstType
-	]=]
-	type: AstType?,
-
-	--[=[
-		@within AstTypeOrPack
-		@prop typePack AstTypePack
-	]=]
-	typePack: AstTypePack?
-}
+export type AstTypeOrPack = AstNodeTypes.AstTypeOrPack
 
 --[=[
 	@within AstTypeOrPack

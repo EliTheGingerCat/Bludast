@@ -1,10 +1,11 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstDeclaredClassProp = require("./AstDeclaredClassProp")
 local AstName = require("./AstName")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstTableIndexer = require("./AstTableIndexer")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstDeclaredClassProp = AstDeclaredClassProp.AstDeclaredClassProp
 type AstName = AstName.AstName
@@ -13,13 +14,7 @@ type AstTableIndexer = AstTableIndexer.AstTableIndexer
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstStatDeclareClass = AstStat & {
-	name: AstName,
-	superName: AstName?,
-
-	props: {AstDeclaredClassProp},
-	indexer: AstTableIndexer
-}
+export type AstStatDeclareClass = AstNodeTypes.AstStatDeclareClass
 
 --[=[
 	@class AstStatDeclareClass
@@ -42,7 +37,7 @@ function AstStatDeclareClass.new(location: Location, name: AstName, superName: A
 end
 
 function prototype.visit(self: AstStatDeclareClass, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstStatDeclareClass(self) then
 		for _, prop in self.props do
 			prop.ty:visit(visitor)
 		end

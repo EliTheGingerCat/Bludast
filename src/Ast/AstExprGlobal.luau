@@ -1,8 +1,9 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
 local AstName = require("./AstName")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstName = AstName.AstName
@@ -12,9 +13,7 @@ type Location = Location.Location
 --[=[
 	@class AstExprGlobal
 ]=]
-export type AstExprGlobal = AstExpr & {
-	name: AstName.AstName
-}
+export type AstExprGlobal = AstNodeTypes.AstExprGlobal
 
 local AstExprGlobal = {
 	ClassIndex = AstClassIndex(),
@@ -31,7 +30,7 @@ function AstExprGlobal.new(location: Location, name: AstName): AstExprGlobal
 end
 
 function prototype.visit(self: AstExprGlobal, visitor: AstVisitor): ()
-	visitor:visit(self)
+	visitor:visitAstExprGlobal(self)
 end
 
 return AstExprGlobal

@@ -1,13 +1,14 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstExprConstantNil = AstExpr
+export type AstExprConstantNil = AstNodeTypes.AstExprConstantNil
 
 --[=[
 	@class AstExprConstantNil
@@ -32,7 +33,7 @@ function AstExprConstantNil.new(location: Location): AstExprConstantNil
 end
 
 function prototype.visit(self: AstExprConstantNil, visitor: AstVisitor): ()
-	visitor:visit(self)
+	visitor:visitAstExprConstantNil(self)
 end
 
 return AstExprConstantNil

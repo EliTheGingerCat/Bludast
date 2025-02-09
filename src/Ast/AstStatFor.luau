@@ -1,10 +1,11 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
 local AstLocal = require("./AstLocal")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstStatBlock = require("./AstStatBlock")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstLocal = AstLocal.AstLocal
@@ -13,16 +14,7 @@ type AstStatBlock = AstStatBlock.AstStatBlock
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstStatFor = AstStat & {
-	var: AstLocal,
-	from: AstExpr,
-	to: AstExpr,
-	step: AstExpr?,
-	body: AstStatBlock,
-
-	hasDo: boolean,
-	doLocation: Location
-}
+export type AstStatFor = AstNodeTypes.AstStatFor
 
 --[=[
 	@class AstStatFor
@@ -48,7 +40,7 @@ function AstStatFor.new(location: Location, var: AstLocal, from: AstExpr, to: As
 end
 
 function prototype.visit(self: AstStatFor, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstStatFor(self) then
 		if self.var.annotation then
 			self.var.annotation:visit(visitor)
 		end

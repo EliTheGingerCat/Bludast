@@ -1,15 +1,14 @@
 local AstClassIndex = require("./AstClassIndex")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstTypePackVariadic = AstType & {
-	variadicType: AstType
-}
+export type AstTypePackVariadic = AstNodeTypes.AstTypePackVariadic
 
 --[=[
 	@class AstTypePackVariadic
@@ -29,7 +28,7 @@ function AstTypePackVariadic.new(location: Location, variadicType: AstType): Ast
 end
 
 function prototype.visit(self: AstTypePackVariadic, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstTypePackVariadic(self) then
 		self.variadicType:visit(visitor)
 	end
 end

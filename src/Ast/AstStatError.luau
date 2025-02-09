@@ -1,14 +1,11 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
-export type AstStatError = AstStat.AstStat & {
-	expressions: {AstExpr.AstExpr},
-	statements: {AstStat.AstStat},
-	messageIndex: number
-}
+export type AstStatError = AstNodeTypes.AstStatError
 
 local AstStatError = {
 	ClassIndex = AstClassIndex(),
@@ -30,7 +27,7 @@ function AstStatError.new(location: Location.Location, expressions: {AstExpr.Ast
 end
 
 function prototype.visit(self: AstStatError, visitor: AstVisitor.AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstStatError(self) then
 		-- Eli NEW_SOLVER
 		for _, expression in self.expressions do
 			expression:visit(visitor)

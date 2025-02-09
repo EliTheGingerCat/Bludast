@@ -5,13 +5,13 @@ local AstGenericType = require("./AstGenericType")
 local AstGenericTypePack = require("./AstGenericTypePack")
 local AstLocal = require("./AstLocal")
 local AstName = require("./AstName")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStatBlock = require("./AstStatBlock")
 local AstTypeList = require("./AstTypeList")
-local AstTypePack = require("./AstTypePack")
 local AstUtilities = require("./AstUtilities")
 local AstVisitor = require("./AstVisitor")
 local FastVariables = require("@Shared/FastVariables")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstAttr = AstAttr.AstAttr
 type AstExpr = AstExpr.AstExpr
@@ -21,29 +21,10 @@ type AstLocal = AstLocal.AstLocal
 type AstName = AstName.AstName
 type AstStatBlock = AstStatBlock.AstStatBlock
 type AstTypeList = AstTypeList.AstTypeList
-type AstTypePack = AstTypePack.AstTypePack
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstExprFunction = AstExpr & {
-	attributes: {AstAttr},
-	generics: {AstGenericType},
-	genericPacks: {AstGenericTypePack},
-	self: AstLocal,
-	args: {AstLocal},
-	returnAnnotation: AstTypeList?,
-	vararg: boolean,
-	varargLocation: Location,
-	varargAnnotation: AstTypePack,
-
-	body: AstStatBlock,
-
-	functionDepth: number,
-
-	debugname: AstName,
-
-	argLocation: Location?
-}
+export type AstExprFunction = AstNodeTypes.AstExprFunction
 
 --[=[
 	@class AstExprFunction
@@ -75,7 +56,7 @@ function AstExprFunction.new(location: Location, attributes: {AstAttr}, generics
 end
 
 function prototype.visit(self: AstExprFunction, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstExprFunction(self) then
 		for _, arg in self.args do
 			if arg.annotation then
 				arg.annotation:visit(visitor)

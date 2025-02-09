@@ -1,5 +1,5 @@
 local AstName = require("./AstName")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 local Pair = require("@Polyfill/Pair")
 
 type AstName = AstName.AstName

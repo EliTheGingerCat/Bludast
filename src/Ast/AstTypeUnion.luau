@@ -1,15 +1,14 @@
 local AstClassIndex = require("./AstClassIndex")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstTypeUnion = AstType & {
-	types: {AstType}
-}
+export type AstTypeUnion = AstNodeTypes.AstTypeUnion
 
 --[=[
 	@class AstTypeUnion
@@ -29,7 +28,7 @@ function AstTypeUnion.new(location: Location, types: {AstType}): AstTypeUnion
 end
 
 function prototype.visit(self: AstTypeUnion, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstTypeUnion(self) then
 		for _, typeAst in self.types do
 			typeAst:visit(visitor)
 		end

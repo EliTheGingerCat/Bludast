@@ -1,13 +1,14 @@
 local AstClassIndex = require("./AstClassIndex")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstStat = AstStat.AstStat
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstStatContinue = AstStat
+export type AstStatContinue = AstNodeTypes.AstStatContinue
 
 --[=[
 	@class AstStatContinue
@@ -24,7 +25,7 @@ function interface.new(location: Location): AstStatContinue
 end
 
 function prototype.visit(self: AstStatContinue, visitor: AstVisitor): ()
-	visitor:visit(self)
+	visitor:visitAstStatContinue(self)
 end
 
 return interface

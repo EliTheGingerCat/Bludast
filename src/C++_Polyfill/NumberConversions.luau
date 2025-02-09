@@ -23,12 +23,28 @@ local function twosComplement(unsigned: number, length: number): number
 	end
 end
 
+function NumberConversions.int(n: number): number
+	if n >= 0 then
+		return math.floor(n)
+	else
+		return math.ceil(n)
+	end
+end
+
 --[=[
 	@within NumberConversions
 	@since v0.1.0
 ]=]
 function NumberConversions.int16_t(n: number): number
 	return twosComplement(NumberConversions.uint16_t(n), 2)
+end
+
+--[=[
+	@within NumberConversions
+	@since v0.1.0
+]=]
+function NumberConversions.int32_t(n: number): number
+	return twosComplement(NumberConversions.uint32_t(n), 4)
 end
 
 --[=[

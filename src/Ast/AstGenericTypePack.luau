@@ -1,6 +1,7 @@
 local AstName = require("./AstName")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstTypePack = require("./AstTypePack")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstName = AstName.AstName
 type AstTypePack = AstTypePack.AstTypePack
@@ -20,6 +21,6 @@ function AstGenericTypePack.new(name: AstName, location: Location, defaultValue:
 		defaultValue = defaultValue
 	}
 end
-export type AstGenericTypePack = typeof(AstGenericTypePack.new(...))
+export type AstGenericTypePack = AstNodeTypes.AstGenericTypePack
 
 return AstGenericTypePack

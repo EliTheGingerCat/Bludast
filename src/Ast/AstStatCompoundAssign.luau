@@ -1,19 +1,16 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstStat = AstStat.AstStat
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstStatCompoundAssign = AstStat & {
-	op: number,
-	var: AstExpr,
-	value: AstExpr
-}
+export type AstStatCompoundAssign = AstNodeTypes.AstStatCompoundAssign
 
 --[=[
 	@class AstStatCompoundAssign
@@ -35,7 +32,7 @@ function AstStatCompoundAssign.new(location: Location, op: number, var: AstExpr,
 end
 
 function prototype.visit(self: AstStatCompoundAssign, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstStatCompoundAssign(self) then
 		self.var:visit(visitor)
 		self.value:visit(visitor)
 	end

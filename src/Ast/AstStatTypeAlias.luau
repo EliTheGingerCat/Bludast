@@ -2,10 +2,11 @@ local AstClassIndex = require("./AstClassIndex")
 local AstGenericType = require("./AstGenericType")
 local AstGenericTypePack = require("./AstGenericTypePack")
 local AstName = require("./AstName")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstType = require("./AstType")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstGenericType = AstGenericType.AstGenericType
 type AstGenericTypePack = AstGenericTypePack.AstGenericTypePack
@@ -15,14 +16,7 @@ type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstStatTypeAlias = AstStat & {
-	name: AstName,
-	nameLocation: Location,
-	generics: {AstGenericType},
-	genericPacks: {AstGenericTypePack},
-	type: AstType,
-	exported: boolean
-}
+export type AstStatTypeAlias = AstNodeTypes.AstStatTypeAlias
 
 --[=[
 	@class AstStatTypeAlias
@@ -47,7 +41,7 @@ function AstStatTypeAlias.new(location: Location, name: AstName, nameLocation: L
 end
 
 function prototype.visit(self: AstStatTypeAlias, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstStatTypeAlias(self) then
 		for _, el in self.generics do
 			if el.defaultValue then
 				el.defaultValue:visit(visitor)

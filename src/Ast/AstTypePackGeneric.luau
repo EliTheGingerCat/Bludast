@@ -1,17 +1,16 @@
 local AstName = require("./AstName")
 local AstClassIndex = require("./AstClassIndex")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstName = AstName.AstName
 type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstTypePackGeneric = AstType & {
-	genericName: AstName
-}
+export type AstTypePackGeneric = AstNodeTypes.AstTypePackGeneric
 
 --[=[
 	@class AstTypePackGeneric
@@ -31,7 +30,7 @@ function AstTypePackGeneric.new(location: Location, name: AstName): AstTypePackG
 end
 
 function prototype.visit(self: AstTypePackGeneric, visitor: AstVisitor): ()
-	visitor:visit(self)
+	visitor:visitAstTypePackGeneric(self)
 end
 
 return AstTypePackGeneric

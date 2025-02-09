@@ -1,19 +1,17 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstStat = require("./AstStat")
 local AstStatBlock = require("./AstStatBlock")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstStat = AstStat.AstStat
 type AstStatBlock = AstStatBlock.AstStatBlock
 type Location = Location.Location
 
-export type AstStatRepeat = AstStat & {
-	condition: AstExpr,
-	body: AstStatBlock
-}
+export type AstStatRepeat = AstNodeTypes.AstStatRepeat
 
 --[=[
 	@class AstStatRepeat
@@ -34,7 +32,7 @@ function AstStatRepeat.new(location: Location, condition: AstExpr, body: AstStat
 end
 
 function prototype.visit(self: AstStatRepeat, visitor: AstVisitor.AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstStatRepeat(self) then
 		self.body:visit(visitor)
 		self.condition:visit(visitor)
 	end

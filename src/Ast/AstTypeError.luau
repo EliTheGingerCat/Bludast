@@ -1,17 +1,14 @@
 local AstClassIndex = require("./AstClassIndex")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstTypeError = AstType & {
-	types: {AstType},
-	isMissing: boolean,
-	messageIndex: number
-}
+export type AstTypeError = AstNodeTypes.AstTypeError
 
 --[=[
 	@class AstTypeError

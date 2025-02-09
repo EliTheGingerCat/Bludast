@@ -1,17 +1,16 @@
 local AstClassIndex = require("./AstClassIndex")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 local AstTypeList = require("./AstTypeList")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstType = AstType.AstType
 type AstTypeList = AstTypeList.AstTypeList
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstTypePackExplicit = AstType & {
-	typeList: AstTypeList
-}
+export type AstTypePackExplicit = AstNodeTypes.AstTypePackExplicit
 
 --[=[
 	@class AstTypePackExplicit
@@ -31,7 +30,7 @@ function AstTypePackExplicit.new(location: Location, typeList: AstTypeList): Ast
 end
 
 function prototype.visit(self: AstTypePackExplicit, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstTypePackExplicit(self) then
 		for _, typeAst in self.typeList.types do
 			typeAst:visit(visitor)
 		end

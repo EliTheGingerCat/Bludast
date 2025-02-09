@@ -1,4 +1,4 @@
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 --[=[
 	@class HotComment

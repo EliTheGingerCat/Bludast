@@ -12,9 +12,9 @@ export type CompileOptions = {
 
 	vectorType: string?,
 
-	mutableGlobals: string?,
+	mutableGlobals: {string}?,
 	
-	userdataTypes: string?
+	userdataTypes: {string}
 }
 
 --[=[
@@ -108,7 +108,7 @@ local CompileOptions = {}
 ]=]
 local _
 
-function CompileOptions.new(optimizationLevel: number?, debugLevel: number?, typeInfoLevel: number?, coverageLevel: number?, vectorLib: string?, vectorCtor: string?, vectorType: string?, mutableGlobals: string?, userdataTypes: string?): CompileOptions
+function CompileOptions.new(optimizationLevel: number?, debugLevel: number?, typeInfoLevel: number?, coverageLevel: number?, vectorLib: string?, vectorCtor: string?, vectorType: string?, mutableGlobals: {string}?, userdataTypes: {string}?): CompileOptions
 	return {
 		optimizationLevel = optimizationLevel or 1,
 		debugLevel = debugLevel or 1,
@@ -118,7 +118,7 @@ function CompileOptions.new(optimizationLevel: number?, debugLevel: number?, typ
 		vectorCtor = vectorCtor,
 		vectorType = vectorType,
 		mutableGlobals = mutableGlobals,
-		userdataTypes = userdataTypes
+		userdataTypes = userdataTypes or {}
 	}
 end
 

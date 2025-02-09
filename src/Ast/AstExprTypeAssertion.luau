@@ -1,18 +1,16 @@
 local AstClassIndex = require("./AstClassIndex")
 local AstExpr = require("./AstExpr")
+local AstNodeTypes = require("./AstNodeTypes")
 local AstType = require("./AstType")
 local AstVisitor = require("./AstVisitor")
-local Location = require("./Location")
+local Location = require("@Shared/Location")
 
 type AstExpr = AstExpr.AstExpr
 type AstType = AstType.AstType
 type AstVisitor = AstVisitor.AstVisitor
 type Location = Location.Location
 
-export type AstExprTypeAssertion = AstExpr & {
-	expr: AstExpr,
-	annotation: AstType
-}
+export type AstExprTypeAssertion = AstNodeTypes.AstExprTypeAssertion
 
 --[=[
 	@class AstExprTypeAssertion
@@ -41,7 +39,7 @@ function AstExprTypeAssertion.new(location: Location, expr: AstExpr, annotation:
 end
 
 function prototype.visit(self: AstExprTypeAssertion, visitor: AstVisitor): ()
-	if visitor:visit(self) then
+	if visitor:visitAstExprTypeAssertion(self) then
 		self.expr:visit(visitor)
 		self.annotation:visit(visitor)
 	end

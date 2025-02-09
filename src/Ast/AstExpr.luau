@@ -1,5 +1,6 @@
 local AstNode = require("./AstNode")
-local Location = require("./Location")
+local AstNodeTypes = require("./AstNodeTypes")
+local Location = require("@Shared/Location")
 
 type AstNode = AstNode.AstNode
 type Location = Location.Location
@@ -13,9 +14,7 @@ local AstExpr = {}
 local prototype = setmetatable({}, AstNode.metatable)
 local metatable = {__index = prototype}
 
-export type AstExpr = AstNode & {
-	asExpr: (self: AstExpr) -> AstExpr
-}
+export type AstExpr = AstNodeTypes.AstExpr
 
 function AstExpr.new(classIndex: number, location: Location): AstExpr
 	local self = AstNode.interface.new(classIndex, location) :: AstExpr
