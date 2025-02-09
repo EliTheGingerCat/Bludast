@@ -87,9 +87,13 @@ end
 	@within Vector
 	@since v0.1.0
 
-	Sets the vector size and capacity to `count` exactly, filling empty spaces with `value`.
+	Sets the vector size and capacity to `count` exactly, filling empty spaces with `value` or [EMPTY](Vector#EMPTY).
 ]=]
-function prototype.resize<T>(self: Vector<T>, count: number, value: T): ()
+function prototype.resize<T>(self: Vector<T>, count: number, value: T?): ()
+	if value == nil then
+		value = EMPTY :: any
+	end
+
 	local size = self._size
 	if size > count then
 		for i = count + 1, size do
@@ -97,7 +101,7 @@ function prototype.resize<T>(self: Vector<T>, count: number, value: T): ()
 		end
 	elseif size < count then
 		for i = size + 1, count do
-			self._data[i] = value
+			self._data[i] = value :: any
 		end
 	end
 	self._size = count

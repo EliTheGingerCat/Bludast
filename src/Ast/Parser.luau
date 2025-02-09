@@ -132,7 +132,7 @@ local Parser = {prototype = prototype}
 local metatable = {__index = prototype}
 
 --[=[
-	@class Parser_BinaryOpPriority
+	@class BinaryOpPriority
 ]=]
 local BinaryOpPriority = {}
 
@@ -142,11 +142,11 @@ type BinaryOpPriority = {
 }
 
 --[=[
-	@within Parser_BinaryOpPriority
+	@within BinaryOpPriority
 	@function new
 	@param left number
 	@param right number
-	@return Parser_BinaryOpPriority
+	@return BinaryOpPriority
 ]=]
 function BinaryOpPriority.new(left: number, right: number): BinaryOpPriority
 	return {
@@ -156,7 +156,7 @@ function BinaryOpPriority.new(left: number, right: number): BinaryOpPriority
 end
 
 --[=[
-	@class Parser_MatchLexeme
+	@class MatchLexeme
 
 	Struct from [`/Ast/include/Luau/Parser.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Parser.h#L281-L291).
 ]=]
@@ -164,7 +164,7 @@ local MatchLexeme = {}
 
 type MatchLexeme = {
 	--[=[
-		@within Parser_MatchLexeme
+		@within MatchLexeme
 		@prop type number -- (Lexeme type)[Lexeme#Type]
 		@readonly
 		@since v0.1.0
@@ -172,7 +172,7 @@ type MatchLexeme = {
 	type: number,
 
 	--[=[
-		@within Parser_MatchLexeme
+		@within MatchLexeme
 		@prop position Position
 		@readonly
 		@since v0.1.0
@@ -181,10 +181,10 @@ type MatchLexeme = {
 }
 
 --[=[
-	@within Parser_MatchLexeme
+	@within MatchLexeme
 	@function new
 	@param l Lexeme
-	@return Parser_MatchLexeme
+	@return MatchLexeme
 ]=]
 function MatchLexeme.new(l: Lexeme): MatchLexeme
 	return {
@@ -197,9 +197,9 @@ end
 	@class Parser_Function
 	Struct from `root/Ast/include/Luau/Parser.h`.
 ]=]
-local Function = {}
+local Parser_Function = {}
 
-type Function = {
+type Parser_Function = {
 	--[=[
 		@within Parser_Function
 		@prop vararg boolean
@@ -228,7 +228,7 @@ type Function = {
 	}
 	```
 ]=]
-function Function.new(): Function
+function Parser_Function.new(): Parser_Function
 	return {
 		vararg = false,
 		loopDepth = 0
@@ -236,7 +236,7 @@ function Function.new(): Function
 end
 
 --[=[
-	@class Parser_Name
+	@class Name
 
 	Struct from [`/Ast/include/Luau/Parser.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Parser.h#L358-L368).
 ]=]
@@ -244,7 +244,7 @@ local Name = {}
 
 type Name = {
 	--[=[
-		@within Parser_Name
+		@within Name
 		@prop name AstName
 		@readonly
 		@since v0.1.0
@@ -252,7 +252,7 @@ type Name = {
 	name: AstName,
 
 	--[=[
-		@within Parser_Name
+		@within Name
 		@prop location Location
 		@readonly
 		@since v0.1.0
@@ -261,11 +261,11 @@ type Name = {
 }
 
 --[=[
-	@within Parser_Name
+	@within Name
 	@function new
 	@param name AstName
 	@param location Location
-	@return Parser_Name
+	@return Name
 ]=]
 function Name.new(name: AstName, location: Location): Name
 	return {
@@ -275,7 +275,7 @@ function Name.new(name: AstName, location: Location): Name
 end
 
 --[=[
-	@class Parser_Binding
+	@class Binding
 
 	Struct from [`/Ast/include/Luau/Parser.h`](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb/Ast/include/Luau/Parser.h#L370-380).
 
@@ -291,14 +291,14 @@ local Binding = {}
 
 type Binding = {
 	--[=[
-		@within Parser_Binding
+		@within Binding
 		@prop name Name
 		@since v0.1.0
 	]=]
 	name: Name,
 
 	--[=[
-		@within Parser_Binding
+		@within Binding
 		@prop annotation AstType
 		@since v0.1.0
 	]=]
@@ -306,7 +306,7 @@ type Binding = {
 }
 
 --[=[
-	@within Parser_Binding
+	@within Binding
 	@since v0.1.0
 ]=]
 function Binding.new(name: Name, annotation: AstType?): Binding
@@ -448,7 +448,7 @@ function Parser.new(buffer: string, bufferSize: number, names: AstNameTable, opt
 		scratchData = ""
 	}, metatable)
 
-	local top = Function.new()
+	local top = Parser_Function.new()
 	top.vararg = true
 
 	self.functionStack:reserve(8)
@@ -1643,7 +1643,7 @@ function prototype.parseFunctionBody(self: Parser, hasself: boolean, matchFuncti
 
 	local localsBegin = self:saveLocals()
 
-	local fun = Function.new()
+	local fun = Parser_Function.new()
 	fun.vararg = vararg
 
 	self.functionStack:emplace_back(fun)

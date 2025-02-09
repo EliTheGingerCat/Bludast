@@ -107,19 +107,20 @@ local Constant = {
 type Constant = {
 	type: number,
 
-	valueBoolean: boolean?,
-	valueNumber: number?,
-	valueVector: {number}?,
-	valueString: number?, -- index into string table
-	valueImport: number?, -- 10-10-10-2 encoded import id
-	valueTable: number?,  -- index into tableShapes[]
-	valueClosure: number? -- index of function in global list
+	-- union, if one is filled then the rest are nil
+	valueBoolean: boolean,
+	valueNumber: number,
+	valueVector: {number},
+	valueString: number, -- index into string table
+	valueImport: number, -- 10-10-10-2 encoded import id
+	valueTable: number,  -- index into tableShapes[]
+	valueClosure: number -- index of function in global list
 }
 
 function Constant.new(type: number): Constant
 	return {
 		type = type
-	}
+	} :: any
 end
 
 --[=[
@@ -141,11 +142,11 @@ function ConstantKey.new(type: number, value: number?): ConstantKey
 end
 
 --[=[
-	@class Function
+	@class Bytecode_Function
 ]=]
-local Function = {}
+local Bytecode_Function = {}
 
-type Function = {
+type Bytecode_Function = {
 	data: string,
 
 	maxstacksize: number,
@@ -162,7 +163,11 @@ type Function = {
 	typeinfo: string
 }
 
-function Function.new(): Function
+--[=[
+	@within Bytecode_Function
+	@since v0.1.0
+]=]
+function Bytecode_Function.new(): Bytecode_Function
 	return {
 		data = "",
 		maxstacksize = 0,
@@ -191,6 +196,10 @@ type DebugLocal = {
 	endpc: number
 }
 
+--[=[
+	@within DebugLocal
+	@since v0.1.0
+]=]
 function DebugLocal.new(): DebugLocal
 	return {
 		name = 0,
@@ -403,7 +412,7 @@ export type BytecodeBuilder = {
 	getVersion: (self: BytecodeBuilder) -> number,
 	getTypeEncodingVersion: (self: BytecodeBuilder) -> number,
 
-	functions: Vector<Function>,
+	functions: Vector<Bytecode_Function>,
 	currentFunction: number,
 	mainFunction: number,
 
@@ -445,7 +454,7 @@ export type BytecodeBuilder = {
 	dumpSource: Vector<string>,
 	dumpRemarks: Vector<Pair<number, string>>,
 	
-	typeTypeInfo: string,
+	tempTypeInfo: stringWrap,
 
 	dumpFunctionPtr: (Vector<number>) -> string,
 
@@ -457,9 +466,9 @@ export type BytecodeBuilder = {
 	dumpConstant: (result: string, k: number) -> (),
 	dumpInstruction: (opcode: number, output: string, targetLabel: number) -> (),
 
-	writeFunction: (self: BytecodeBuilder, ss: string, id: number, flags: number) -> (),
-	writeLineInfo: (self: BytecodeBuilder, ss: string) -> (),
-	writeStringTable: (self: BytecodeBuilder, ss: string) -> (),
+	writeFunction: (self: BytecodeBuilder, ss: stringWrap, id: number, flags: number) -> (),
+	writeLineInfo: (self: BytecodeBuilder, ss: stringWrap) -> (),
+	writeStringTable: (self: BytecodeBuilder, ss: stringWrap) -> (),
 
 	addConstant: (self: BytecodeBuilder, key: ConstantKey, value: Constant) -> number,
 	addStringTableEntry: (self: BytecodeBuilder, value: StringRef) -> number,
@@ -483,7 +492,7 @@ local metatable = {
 	__index = prototype
 }
 
-local function log2(v: number): ()
+local function log2(v: number): number
 	assert(v)
 
 	local r = 0
@@ -493,6 +502,14 @@ local function log2(v: number): ()
 	end
 
 	return r
+end
+
+local function writeByte(ss: stringWrap, value: number): ()
+	ss.s ..= tostring(value)
+end
+
+local function writeBoolean(ss: stringWrap, value: boolean): ()
+	ss.s ..= string.char(btn(value))
 end
 
 local function writeVarInt(s: stringWrap, value: number): ()
@@ -624,7 +641,7 @@ function BytecodeBuilder.new(encoder: BytecodeEncoder): BytecodeBuilder
 		dumpSource = Vector.new(),
 		dumpRemarks = Vector.new(),
 
-		typeTypeInfo = ""
+		tempTypeInfo = {s = ""}
 	} :: BytecodeBuilder, metatable) :: any
 
 	assert(self.stringTable[StringRef.new("", 0)] == nil)
@@ -648,7 +665,7 @@ function prototype.beginFunction(self: BytecodeBuilder, numparams: number, isvar
 
 	local id = self.functions:size()
 
-	local func = Function.new()
+	local func = Bytecode_Function.new()
 	func.numparams = numparams
 	func.isvararg = isvararg
 
@@ -669,7 +686,7 @@ end
 function prototype.endFunction(self: BytecodeBuilder, maxstacksize: number, numupvalues: number, flags: number): ()
 	assert(self.currentFunction ~= bit32.bnot(0))
 
-	local func = self.functions[self.currentFunction]
+	local func = self.functions:get(self.currentFunction)
 
 	func.maxstacksize = maxstacksize
 	func.numupvalues = numupvalues
@@ -678,7 +695,7 @@ function prototype.endFunction(self: BytecodeBuilder, maxstacksize: number, numu
 
 	-- this call is indirect to make sure we only gain link time dependency on dumpCurrentFunction when needed
 	if self.dumpFunctionPtr then
-		func.dump = (self.dumpFunctionPtr)(func.dumpinstoffs)
+		func.dump = self.dumpFunctionPtr(func.dumpinstoffs)
 	end
 
 	-- very approximate: 4 bytes per instruction for code, 1 byte for debug line, and 1-2 bytes for aux data like constants plus overhead
@@ -1207,9 +1224,9 @@ function prototype.finalize(self: BytecodeBuilder): ()
 	assert(typesversion >= LuauBytecodeTag.LBC_TYPE_VERSION_MIN and typesversion <= LuauBytecodeTag.LBC_TYPE_VERSION_MAX)
 	self.bytecode ..= string.char(typesversion)
 
-	self:writeStringTable(self.bytecode)
-
 	local bytecodeWrap = {s = self.bytecode}
+
+	self:writeStringTable(bytecodeWrap)
 
 	if FastVariables.LuauCompileTypeInfo and FastVariables.LuauCompileUserdataInfo then
 		-- Write the mapping between used type name indices and their name
@@ -1232,6 +1249,328 @@ function prototype.finalize(self: BytecodeBuilder): ()
 	writeVarInt(bytecodeWrap, self.mainFunction)
 
 	self.bytecode = bytecodeWrap.s
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.writeFunction(self: BytecodeBuilder, ss: stringWrap, id: number, flags: number): ()
+	assert(id < self.functions:size())
+	local func = self.functions:get(id)
+
+	-- header
+	writeByte(ss, func.maxstacksize)
+	writeByte(ss, func.numparams)
+	writeByte(ss, func.numupvalues)
+	writeBoolean(ss, func.isvararg)
+
+	writeByte(ss, flags)
+
+	if FastVariables.LuauCompileTypeInfo then
+		if func.typeinfo ~= "" or not self.typedUpvals:empty() or not self.typedLocals:empty() then
+			-- collect type info into a temporary string to know the overall size of type data
+			self.tempTypeInfo.s = ""
+			writeVarInt(self.tempTypeInfo, uint32_t(#func.typeinfo))
+			writeVarInt(self.tempTypeInfo, uint32_t(self.typedUpvals:size()))
+			writeVarInt(self.tempTypeInfo, uint32_t(self.typedLocals:size()))
+
+			self.tempTypeInfo.s ..= func.typeinfo
+
+			for _, l in self.typedUpvals:data() do
+				writeByte(self.tempTypeInfo, l.type)
+			end
+
+			for _, l in self.typedLocals:data() do
+				writeByte(self.tempTypeInfo, l.type)
+				writeByte(self.tempTypeInfo, l.reg)
+				writeVarInt(self.tempTypeInfo, l.startpc)
+				assert(l.endpc >= l.startpc)
+				writeVarInt(self.tempTypeInfo, l.endpc - l.startpc)
+			end
+
+			writeVarInt(ss, uint32_t(#self.tempTypeInfo.s))
+			ss.s ..= self.tempTypeInfo.s
+		else
+			writeVarInt(ss, 0)
+		end
+	else
+		writeVarInt(ss, uint32_t(#func.typeinfo))
+		ss.s ..= func.typeinfo
+	end
+
+	-- instructions
+	writeVarInt(ss, uint32_t(self.insns:size()))
+
+	for _, insn in self.insns:data() do
+		writeByte(ss, insn)
+	end
+
+	-- constants
+	writeVarInt(ss, uint32_t(self.constants:size()))
+
+	for _, c in self.constants:data() do
+		local cType = c.type
+		if cType == Constant.Type.Type_Nil then
+			writeByte(ss, LuauBytecodeTag.LBC_CONSTANT_NIL)
+
+		elseif cType == Constant.Type.Type_Boolean then
+			writeByte(ss, LuauBytecodeTag.LBC_CONSTANT_BOOLEAN)
+			writeBoolean(ss, c.valueBoolean)
+
+		elseif cType == Constant.Type.Type_Number then
+			writeByte(ss, LuauBytecodeTag.LBC_CONSTANT_NUMBER)
+			writeByte(ss, c.valueNumber)
+
+		elseif cType == Constant.Type.Type_Vector then
+			writeByte(ss, LuauBytecodeTag.LBC_CONSTANT_VECTOR)
+			writeByte(ss, c.valueVector[1])
+			writeByte(ss, c.valueVector[2])
+			writeByte(ss, c.valueVector[3])
+			writeByte(ss, c.valueVector[4])
+
+		elseif cType == Constant.Type.Type_String then
+			writeByte(ss, LuauBytecodeTag.LBC_CONSTANT_STRING)
+			writeVarInt(ss, c.valueString)
+
+		elseif cType == Constant.Type.Type_Import then
+			writeByte(ss, LuauBytecodeTag.LBC_CONSTANT_IMPORT)
+			writeByte(ss, c.valueImport)
+
+		elseif cType == Constant.Type.Type_Table then
+			local shape = self.tableShapes:get(c.valueTable)
+			writeByte(ss, LuauBytecodeTag.LBC_CONSTANT_TABLE)
+			writeVarInt(ss, uint32_t(shape.length))
+			for _, key in shape.keys do
+				writeVarInt(ss, key)
+			end
+
+		elseif cType == Constant.Type.Type_Closure then
+			writeByte(ss, LuauBytecodeTag.LBC_CONSTANT_CLOSURE)
+			writeVarInt(ss, c.valueClosure)
+
+		else
+			error("Unsupported constant type")
+		end
+	end
+
+	-- child protos
+	writeVarInt(ss, uint32_t(self.protos:size()))
+
+	for _, child in self.protos:data() do
+		writeVarInt(ss, child)
+	end
+
+	-- debug info
+	writeVarInt(ss, func.debuglinedefined)
+	writeVarInt(ss, func.debugname)
+
+	local hasLines = true
+
+	for _, line in self.lines:data() do
+		if line == 0 then
+			hasLines = false
+			break
+		end
+	end
+
+	if hasLines then
+		writeByte(ss, 1)
+
+		self:writeLineInfo(ss)
+	else
+		writeByte(ss, 0)
+	end
+
+	local hasDebug = not self.debugLocals:empty() or not self.debugUpvals:empty()
+
+	if hasDebug then
+		writeByte(ss, 1)
+		
+		writeVarInt(ss, uint32_t(self.debugLocals:size()))
+
+		for _, l in self.debugLocals:data() do
+			writeVarInt(ss, l.name)
+			writeVarInt(ss, l.startpc)
+			writeVarInt(ss, l.endpc)
+			writeByte(ss, l.reg)
+		end
+
+		writeVarInt(ss, uint32_t(self.debugUpvals:size()))
+
+		for _, l in self.debugUpvals:data() do
+			writeVarInt(ss, l.name)
+		end
+	else
+		writeByte(ss, 0)
+	end
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.writeLineInfo(self: BytecodeBuilder, ss: stringWrap): ()
+	assert(not self.lines:empty())
+
+	-- this function encodes lines inside each span as a 8-bit delta to span baseline
+	-- span is always a power of two; depending on the line info input, it may need to be as low as 1
+	local span = bit32.lshift(1, 24)
+
+	-- first pass: determine span length
+	for offset = 0, self.lines:size() - 1, span do
+		local next = offset
+
+		local min = self.lines:get(offset + 1)
+		local max = self.lines:get(offset + 1)
+
+		while true do
+			if not (next < self.lines:size() and next < offset + span) then
+				break
+			end
+
+			min = math.min(min, self.lines:get(next + 1))
+			max = math.max(max, self.lines:get(next + 1))
+
+			if max - min > 255 then
+				break
+			end
+
+			next += 1
+		end
+
+		if next < self.lines:size() and next - offset < span then
+			-- since not all lines in the range fit in 8b delta, we need to shrink the span
+            -- next iteration will need to reprocess some lines again since span changed
+			span = bit32.lshift(1, log2(next - offset))
+		end
+	end
+
+	-- second pass: compute span base
+	local baselineScratch = Vector.new() :: Vector<number>
+	local baselineSize = (self.lines:size() - 1) / span + 1
+
+	if baselineSize > 1 then
+		-- avoid heap allocation for single-element baseline which is most functions (<256 lines)
+		baselineScratch:resize(baselineSize)
+	end
+
+	for offset = 0, self.lines:size() - 1, span do
+		local next = offset
+
+		local min = self.lines:get(offset)
+
+		while true do
+			if not (next < self.lines:size() and next < offset + span) then
+				break
+			end
+
+			min = math.min(min, self.lines:get(next))
+
+			next += 1
+		end
+
+		baselineScratch:set(offset / span, min)
+	end
+
+	-- third pass: write resulting data
+	local logspan = log2(span)
+
+	writeByte(ss, uint8_t(logspan))
+
+	local lastOffset = 0
+
+	for i = 0, self.lines:size() - 1 do
+		local delta = self.lines:get(i + 1) - baselineScratch:get(bit32.rshift(i, logspan))
+		assert(delta >= 0 and delta <= 255)
+
+		writeByte(ss, uint8_t(delta) - lastOffset)
+		lastOffset = uint8_t(delta)
+	end
+
+	local lastLine = 0
+
+	for _, base in baselineScratch:data() do
+		writeByte(ss, base - lastLine)
+		lastLine = base
+	end
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.writeStringTable(self: BytecodeBuilder, ss: stringWrap): ()
+	local strings = Vector.new() :: Vector<StringRef>
+	strings:resize(dictionarySize(self.stringTable))
+
+	for first, second in self.stringTable do
+		assert(second > 0 and second <= strings:size())
+		strings:set(second - 1, first)
+	end
+
+	writeVarInt(ss, uint32_t(strings:size()))
+
+	for _, s in strings:data() do
+		writeVarInt(ss, uint32_t(s.length))
+		ss.s ..= s.data
+	end
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.getImportId(self: BytecodeBuilder, id0: number, id1: number?, id2: number?): number
+	if id1 == nil and id2 == nil then
+		assert(unsigned(id0) < 1024)
+
+		return bit32.bor(
+			bit32.lshift(1, 30),
+			bit32.lshift(id0, 20)
+		)
+	elseif id1 ~= nil and id2 == nil then
+		assert(unsigned(bit32.bor(id0, id1)) < 1024)
+
+		return bit32.bor(
+			bit32.lshift(2, 30),
+			bit32.lshift(id0, 20),
+			bit32.lshift(id1, 10)
+		)
+	elseif id1 ~= nil and id2 ~= nil then
+		assert(unsigned(bit32.bor(id0, id1, id2)) < 1024)
+
+		return bit32.bor(
+			bit32.lshift(3, 30),
+			bit32.lshift(id0, 20),
+			bit32.lshift(id1, 10),
+			id2
+		)
+	else
+		error("Invalid arguments.")
+	end
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.decomposeImportId(self: BytecodeBuilder, ids: number, id0: number, id1: number, id2: number): {
+	id0: number,
+	id1: number,
+	id2: number,
+	count: number
+}
+	local count = bit32.rshift(ids, 30)
+	id0 = if count > 0 then bit32.band(bit32.rshift(ids, 20), 1023) else -1
+	id1 = if count > 1 then bit32.band(bit32.rshift(ids, 10), 1023) else -1
+	id2 = if count > 2 then bit32.band(             ids,      1023) else -1
+	return {
+		id0 = id0,
+		id1 = id1,
+		id2 = id2,
+		count = count
+	}
 end
 
 return BytecodeBuilder
