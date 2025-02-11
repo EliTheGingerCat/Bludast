@@ -45,7 +45,7 @@ local kMaxJumpDistance = bit32.lshift(1, 23)
 
 local StringRef = {}
 
-type StringRef = {
+export type StringRef = {
 	data: string,
 	length: number
 }
@@ -400,17 +400,6 @@ export type BytecodeBuilder = {
 	dumpTypeInfo: (self: BytecodeBuilder) -> string,
 
 	annotateInstruction: (self: BytecodeBuilder, result: string, fid: number, instpos: number) -> (),
-
-	getImportId: (self: BytecodeBuilder, id0: number, id1: number?, id2: number?) -> (),
-
-	decomposeImportId: (self: BytecodeBuilder, ids: number, id0: number, id1: number, id2: number) -> number,
-
-	getStringHash: (self: BytecodeBuilder, key: StringRef) -> number,
-
-	getError: (self: BytecodeBuilder, message: string) -> string,
-
-	getVersion: (self: BytecodeBuilder) -> number,
-	getTypeEncodingVersion: (self: BytecodeBuilder) -> number,
 
 	functions: Vector<Bytecode_Function>,
 	currentFunction: number,
@@ -1521,7 +1510,7 @@ end
 	@within BytecodeBuilder
 	@since v0.1.0
 ]=]
-function prototype.getImportId(self: BytecodeBuilder, id0: number, id1: number?, id2: number?): number
+function BytecodeBuilder.getImportId(id0: number, id1: number?, id2: number?): number
 	if id1 == nil and id2 == nil then
 		assert(unsigned(id0) < 1024)
 
@@ -1555,7 +1544,7 @@ end
 	@within BytecodeBuilder
 	@since v0.1.0
 ]=]
-function prototype.decomposeImportId(self: BytecodeBuilder, ids: number, id0: number, id1: number, id2: number): {
+function BytecodeBuilder.decomposeImportId(ids: number, id0: number, id1: number, id2: number): {
 	id0: number,
 	id1: number,
 	id2: number,
@@ -1572,5 +1561,7 @@ function prototype.decomposeImportId(self: BytecodeBuilder, ids: number, id0: nu
 		count = count
 	}
 end
+
+BytecodeBuilder.StringRef = StringRef
 
 return BytecodeBuilder
