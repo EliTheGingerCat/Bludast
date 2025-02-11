@@ -1562,6 +1562,30 @@ function BytecodeBuilder.decomposeImportId(ids: number, id0: number, id1: number
 	}
 end
 
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function BytecodeBuilder.getStringHash(key: StringRef): number
+	-- This hashing algorithm should match luaS_hash defined in VM/lstring.cpp for short inputs; we can't use that code directly to keep compiler and
+	-- VM independent in terms of compilation/linking. The resulting string hashes are embedded into bytecode binary and result in a better initial
+	-- guess for the field hashes which improves performance during initial code execution. We omit the long string processing here for simplicity, as
+	-- it doesn't really matter on long identifiers.
+	local str = key.data
+	local len = key.length
+
+	local h = unsigned(len)
+
+	-- original Lua 5.1 hash for compatibility (exact match when len<32)
+	local i = len
+	while i > 0 do
+		h = bit32.bxor(h, bit32.lshift(h, 5) + bit32.rshift(h, 2) + string.byte(string.sub(str, i)))
+		i -= 1
+	end
+
+	return h
+end
+
 BytecodeBuilder.StringRef = StringRef
 
 return BytecodeBuilder
