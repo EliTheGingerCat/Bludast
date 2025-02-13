@@ -1586,6 +1586,19 @@ function BytecodeBuilder.getStringHash(key: StringRef): number
 	return h
 end
 
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function BytecodeBuilder.getError(message: string): string
+	-- 0 acts as a special marker for error bytecode (it's equal to LBC_VERSION_TARGET for valid bytecode blobs)
+	local result = ""
+	result ..= string.char(0)
+	result ..= message
+
+	return result
+end
+
 BytecodeBuilder.StringRef = StringRef
 
 return BytecodeBuilder
