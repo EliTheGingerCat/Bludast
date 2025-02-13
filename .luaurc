@@ -7,6 +7,7 @@
 		"Ast": "src/Ast",
 		"Common": "src/Common",
 		"Compiler": "src/Compiler",
+		"lune": "~/.lune/.typedefs/0.8.9/",
 		"Polyfill": "src/C++_Polyfill",
 		"Shared": "src/Shared"
 	}

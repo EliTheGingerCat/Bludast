@@ -15,11 +15,9 @@ type testData = {
 
 local Ws = 0
 local Ls = 0
-local gotError = false
 
 local function reportError(message: string): ()
 	stdio.ewrite(stdio.color("red") .. "Error: " .. message .. stdio.color("reset"))
-	gotError = true
 end
 
 local function reportFatalError(message: string): ()
@@ -122,9 +120,7 @@ end
 
 testAny(pathStart)
 
-if Ws == 0 and Ls == 0 and gotError then
-	print("There are no test results, but looks like you got an error. 🤔")
-elseif Ws == 0 and Ls == 0 then
+if Ws == 0 and Ls == 0 then
 	print("Bro did not write any tests... 😾")
 elseif Ws == 1 and Ls == 0 then
 	print("Your single test passed! 😸")
