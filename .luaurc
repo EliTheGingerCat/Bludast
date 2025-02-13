@@ -6,6 +6,7 @@
 	"aliases": {
 		"Ast": "src/Ast",
 		"Common": "src/Common",
+		"Compiler": "src/Compiler",
 		"Polyfill": "src/C++_Polyfill",
 		"Shared": "src/Shared"
 	}

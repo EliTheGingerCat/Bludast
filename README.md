@@ -38,6 +38,8 @@ Some files from `/Ast` were moved to `/Shared` since they are used in more than 
 
 Fast flags and fast integers are stored in a separate file, `/Shared/FastVariables.luau`.
 
+Instead of 64 bit numbers, pairs of 32 bit numbers are used.
+
 ## Progress
 
 Current version (commit hash): [7d4033071abebe09971b410d362c00ffb3084afb](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb)

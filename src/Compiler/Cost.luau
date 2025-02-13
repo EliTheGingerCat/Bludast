@@ -1,13 +1,17 @@
 local AstVisitor = require("@Ast/AstVisitor")
+local NumberConversions = require("@Polyfill/NumberConversions")
 local Pair = require("@Polyfill/Pair")
 
-type Pair<T1, T2> = Pair.Pair<T1, T2>
-
+type u64 = NumberConversions.u64
+local u64_max = NumberConversions.u64_max
 
 local prototype = setmetatable({}, AstVisitor.metatable)
 
 --[=[
 	@class Cost
+	@__index prototype
+
+	Struct from [`/Compiler/src/CostModel.cpp`](https://github.com/luau-lang/luau/blob/7d4033071abebe09971b410d362c00ffb3084afb/Compiler/src/CostModel.cpp#L61-L112).
 ]=]
 local Cost = {
 	prototype = prototype
@@ -16,14 +20,6 @@ local Cost = {
 local metatable = {
 	__index = prototype
 }
-
---[=[
-	@within Cost
-	@type u64 Pair<number, number>
-
-	A Luau-safe way to deal with 64 bit integers.
-]=]
-type u64 = Pair<number, number>
 
 export type Cost = typeof(setmetatable({} :: {
 	model: u64,
@@ -169,12 +165,12 @@ end
 
 --[=[
 	@within Cost
-	@prop kLiteral u64
+	@prop kLiteral u64 -- u64_max
 	@since v0.1.0
 
-	The maximum u64 value.
+	The `constant` value of constant expressions.
 ]=]
-Cost.kLiteral = Pair.new(0xffffffff, 0xffffffff)
+Cost.kLiteral = u64_max
 
 --[=[
 	@within CostModel
@@ -226,6 +222,10 @@ function metatable.__mul(self: Cost, other: number): Cost
 	return result
 end
 
+--[=[
+	@within CostModel
+	@since v0.1.0
+]=]
 function Cost.fold(x: Cost, y: Cost): Cost
 	local newmodel = parallelAddSat(x.model, y.model)
 
