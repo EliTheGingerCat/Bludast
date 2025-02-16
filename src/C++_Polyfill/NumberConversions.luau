@@ -131,7 +131,7 @@ function NumberConversions.u64_equal(a: u64, b: u64): boolean
 end
 
 --[=[
-	@within NumberUtilities
+	@within NumberConversions
 	@since v0.1.0
 
 	Performs wrap around so that the result will always be positive and less than the maximum `u32` value.

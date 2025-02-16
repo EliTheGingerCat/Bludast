@@ -62,6 +62,46 @@ return {
 
 	--[=[
 		@within FastVariables
+		@prop LuauCompileInlineDepth 5
+		@readonly
+		@since v0.1.0
+	]=]
+	LuauCompileInlineDepth = 5,
+
+	--[=[
+		@within FastVariables
+		@prop LuauCompileInlineThreshold 25
+		@readonly
+		@since v0.1.0
+	]=]
+	LuauCompileInlineThreshold = 25,
+
+	--[=[
+		@within FastVariables
+		@prop LuauCompileInlineThresholdMaxBoost 300
+		@readonly
+		@since v0.1.0
+	]=]
+	LuauCompileInlineThresholdMaxBoost = 300,
+
+	--[=[
+		@within FastVariables
+		@prop LuauCompileLoopUnrollThreshold 25
+		@readonly
+		@since v0.1.0
+	]=]
+	LuauCompileLoopUnrollThreshold = 25,
+
+	--[=[
+		@within FastVariables
+		@prop LuauCompileLoopUnrollThresholdMaxBoost 300
+		@readonly
+		@since v0.1.0
+	]=]
+	LuauCompileLoopUnrollThresholdMaxBoost = 300,
+
+	--[=[
+		@within FastVariables
 		@prop LuauCompileTempTypeInfo false
 		@readonly
 		@since v0.1.0

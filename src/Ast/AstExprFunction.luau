@@ -36,7 +36,7 @@ local AstExprFunction = {
 local prototype = setmetatable({}, AstExpr.metatable)
 local metatable = {__index = prototype}
 
-function AstExprFunction.new(location: Location, attributes: {AstAttr}, generics: {AstGenericType}, genericPacks: {AstGenericTypePack}, selfLocal: AstLocal, args: {AstLocal}, vararg: boolean, varargLocation: Location, body: AstStatBlock, functionDepth: number, debugname: AstName, returnAnnotation: AstTypeList?, varargAnnotation: AstTypePack, argLocation: Location?): AstExprFunction
+function AstExprFunction.new(location: Location, attributes: {AstAttr}, generics: {AstGenericType}, genericPacks: {AstGenericTypePack}, selfLocal: AstLocal?, args: {AstLocal}, vararg: boolean, varargLocation: Location, body: AstStatBlock, functionDepth: number, debugname: AstName, returnAnnotation: AstTypeList?, varargAnnotation: AstTypePack?, argLocation: Location?): AstExprFunction
 	local self = AstExpr.interface.new(AstExprFunction.ClassIndex, location) :: AstExprFunction
 	self.attributes = attributes
 	self.generics = generics

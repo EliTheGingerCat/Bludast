@@ -11,7 +11,7 @@ export type Scope = typeof(setmetatable({} :: {
 	context: ThreadContext
 }, metatable))
 
-function Scope.new(token: number)
+function Scope.new(token: number): Scope?
 	local self = setmetatable({
 		context = ThreadContext.new()
 	}, metatable)

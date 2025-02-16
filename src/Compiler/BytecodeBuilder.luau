@@ -5,11 +5,10 @@ local LuauBytecodeTag = require("@Common/Bytecode/LuauBytecodeTag")
 local LuauBytecodeType = require("@Common/Bytecode/LuauBytecodeType")
 local LuauOpcode = require("@Common/Bytecode/LuauOpcode")
 local NumberConversions = require("@Polyfill/NumberConversions")
-local NumberUtilities = require("@Shared/NumberUtilities")
 local Pair = require("@Polyfill/Pair")
 local Vector = require("@Polyfill/Vector")
 
-local btn = NumberUtilities.booleanToNumber
+local btn = NumberConversions.booleanToNumber
 type BytecodeEncoder = BytecodeEncoder.BytecodeEncoder
 local int16_t = NumberConversions.int16_t
 local LUAU_INSN_C = BytecodeUtilities.LUAU_INSN_C
@@ -30,6 +29,7 @@ local function dictionarySize(tab: {}): number
 end
 
 --[=[
+	@type stringWrap {s: string}
 	@within BytecodeBuilder
 	
 	Used for passing strings by reference.
@@ -57,12 +57,12 @@ function StringRef.new(data: string, length: number): StringRef
 	}
 end
 
-local kMaxLength = 32
-
 --[=[
-	@class TableShape
+	@class BytecodeBuilder_TableShape
 ]=]
-local TableShape = {}
+local TableShape = {
+	kMaxLength = 32
+}
 
 type TableShape = {
 	keys: {number},
@@ -71,7 +71,7 @@ type TableShape = {
 
 function TableShape.new(): TableShape
 	return {
-		keys = table.create(kMaxLength),
+		keys = table.create(TableShape.kMaxLength),
 		length = 0
 	}
 end
@@ -1600,5 +1600,6 @@ function BytecodeBuilder.getError(message: string): string
 end
 
 BytecodeBuilder.StringRef = StringRef
+BytecodeBuilder.TableShape = TableShape
 
 return BytecodeBuilder

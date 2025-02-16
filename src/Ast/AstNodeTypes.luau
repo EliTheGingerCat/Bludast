@@ -141,12 +141,12 @@ export type AstExprFunction = AstExpr & {
 	attributes: {AstAttr},
 	generics: {AstGenericType},
 	genericPacks: {AstGenericTypePack},
-	self: AstLocal,
+	self: AstLocal?,
 	args: {AstLocal},
 	returnAnnotation: AstTypeList?,
 	vararg: boolean,
 	varargLocation: Location,
-	varargAnnotation: AstTypePack,
+	varargAnnotation: AstTypePack?,
 
 	body: AstStatBlock,
 

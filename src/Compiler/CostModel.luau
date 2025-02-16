@@ -55,7 +55,7 @@ end
 
 	Cost is computed as `B - sum(Di * Ci)`, where `B` is baseline cost, `Di` is the discount for each variable and `Ci` is 1 when variable #i is constant.
 ]=]
-function CostModel.computeCost(model: u64, varsConst: {boolean}, varCount: number): number
+function CostModel.computeCost(model: u64, varsConst: {boolean}?, varCount: number): number
 	local cost = bit32.band(model.first, 0x7f)
 
 	-- don't apply discounts to what is likely a saturated sum
@@ -64,7 +64,7 @@ function CostModel.computeCost(model: u64, varsConst: {boolean}, varCount: numbe
 	end
 
 	for i = 1, math.min(varCount, 7) do
-		cost -= bit32.band(get_u4_from_u64(model, i + 1), 0x7f) * btn(varsConst[i])
+		cost -= bit32.band(get_u4_from_u64(model, i + 1), 0x7f) * btn(assert(varsConst)[i])
 	end
 
 	return cost
