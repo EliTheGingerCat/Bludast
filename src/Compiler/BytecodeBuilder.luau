@@ -1,8 +1,11 @@
+--!nolint LocalShadow
+
 local BytecodeEncoder = require("./BytecodeEncoder")
 local BytecodeUtilities = require("@Common/Bytecode/BytecodeUtilities")
 local FastVariables = require("@Shared/FastVariables")
 local LuauBytecodeTag = require("@Common/Bytecode/LuauBytecodeTag")
 local LuauBytecodeType = require("@Common/Bytecode/LuauBytecodeType")
+local LuauCaptureType = require("@Common/Bytecode/LuauCaptureType")
 local LuauOpcode = require("@Common/Bytecode/LuauOpcode")
 local NumberConversions = require("@Polyfill/NumberConversions")
 local Pair = require("@Polyfill/Pair")
@@ -10,8 +13,14 @@ local Vector = require("@Polyfill/Vector")
 
 local btn = NumberConversions.booleanToNumber
 type BytecodeEncoder = BytecodeEncoder.BytecodeEncoder
+local getOpLength = BytecodeUtilities.getOpLength
+local int = NumberConversions.int
 local int16_t = NumberConversions.int16_t
+local LUAU_INSN_A = BytecodeUtilities.LUAU_INSN_A
+local LUAU_INSN_B = BytecodeUtilities.LUAU_INSN_B
 local LUAU_INSN_C = BytecodeUtilities.LUAU_INSN_C
+local LUAU_INSN_D = BytecodeUtilities.LUAU_INSN_D
+local LUAU_INSN_E = BytecodeUtilities.LUAU_INSN_E
 local LUAU_INSN_OP = BytecodeUtilities.LUAU_INSN_OP
 type Pair<T1, T2> = Pair.Pair<T1, T2>
 local uint8_t = NumberConversions.uint8_t
@@ -147,7 +156,7 @@ end
 local Bytecode_Function = {}
 
 type Bytecode_Function = {
-	data: string,
+	data: stringWrap,
 
 	maxstacksize: number,
 	numparams: number,
@@ -169,7 +178,7 @@ type Bytecode_Function = {
 ]=]
 function Bytecode_Function.new(): Bytecode_Function
 	return {
-		data = "",
+		data = {s = ""},
 		maxstacksize = 0,
 		numparams = 0,
 		numupvalues = 0,
@@ -410,7 +419,7 @@ export type BytecodeBuilder = {
 	lines: Vector<number>,
 	constants: Vector<Constant>,
 	protos: Vector<number>,
-	jumps: Vector<Jump>,
+	jumps: {Jump},
 
 	tableShapes: Vector<TableShape>,
 
@@ -448,8 +457,8 @@ export type BytecodeBuilder = {
 	dumpFunctionPtr: (Vector<number>) -> string,
 
 	validate: (self: BytecodeBuilder) -> (),
-	validateInstructions: () -> (),
-	validateVariadic: () -> (),
+	validateInstructions: (self: BytecodeBuilder) -> (),
+	validateVariadic: (self: BytecodeBuilder) -> (),
 
 	dumpCurrentFunction: (dumpinstoffs: Vector<number>) -> string,
 	dumpConstant: (result: string, k: number) -> (),
@@ -584,6 +593,28 @@ end
 
 --[=[
 	@within BytecodeBuilder
+	@private
+	@since v0.1.0
+	@tag local
+]=]
+local function getJumpTarget(insn: number, pc: number): number
+	local op = LUAU_INSN_OP(insn)
+
+	if isJumpD(op) then
+		return int(pc + LUAU_INSN_D(insn) + 1)
+	elseif isFastCall(op) then
+		return int(pc + LUAU_INSN_C(insn) + 2)
+	elseif isSkipC(op) and LUAU_INSN_C(insn) ~= 0 then
+		return int(pc + LUAU_INSN_C(insn) + 1)
+	elseif op == LuauOpcode.LOP_JUMPX then
+		return int(pc + LUAU_INSN_E(insn) + 1)
+	else
+		return -1
+	end
+end
+
+--[=[
+	@within BytecodeBuilder
 	@since v0.1.0
 ]=]
 function BytecodeBuilder.new(encoder: BytecodeEncoder): BytecodeBuilder
@@ -603,7 +634,7 @@ function BytecodeBuilder.new(encoder: BytecodeEncoder): BytecodeBuilder
 		lines = Vector.new(),
 		constants = Vector.new(),
 		protos = Vector.new(),
-		jumps = Vector.new(),
+		jumps = {},
 
 		tableShapes = Vector.new(),
 
@@ -675,7 +706,7 @@ end
 function prototype.endFunction(self: BytecodeBuilder, maxstacksize: number, numupvalues: number, flags: number): ()
 	assert(self.currentFunction ~= bit32.bnot(0))
 
-	local func = self.functions:get(self.currentFunction)
+	local func = self.functions:get(self.currentFunction + 1)
 
 	func.maxstacksize = maxstacksize
 	func.numupvalues = numupvalues
@@ -688,7 +719,7 @@ function prototype.endFunction(self: BytecodeBuilder, maxstacksize: number, numu
 	end
 
 	-- very approximate: 4 bytes per instruction for code, 1 byte for debug line, and 1-2 bytes for aux data like constants plus overhead
-	func.data:reserve(32 + self.insns:size() * 7)
+	-- func.data:reserve(32 + self.insns:size() * 7)
 
 	if self.encoder then
 		self.encoder:encode(self.insns[1], self.insns:size())
@@ -703,7 +734,7 @@ function prototype.endFunction(self: BytecodeBuilder, maxstacksize: number, numu
 	self.lines:clear()
 	self.constants:clear()
 	self.protos:clear()
-	self.jumps:clear()
+	table.clear(self.jumps)
 	self.tableShapes:clear()
 
 	self.debugLocals:clear()
@@ -986,7 +1017,7 @@ function prototype.patchJumpD(self: BytecodeBuilder, jumpLabel: number, targetLa
 		return false
 	end
 
-	self.jumps:push_back(Jump.new(uint32_t(jumpLabel), uint32_t(targetLabel)))
+	table.insert(self.jumps, Jump.new(uint32_t(jumpLabel), uint32_t(targetLabel)))
 	return true
 end
 
@@ -1017,7 +1048,7 @@ end
 	@since v0.1.0
 ]=]
 function prototype.setFunctionTypeInfo(self: BytecodeBuilder, value: string): ()
-	self.functions:get(self.currentFunction).typeinfo = value
+	self.functions:get(self.currentFunction + 1).typeinfo = value
 end
 
 --[=[
@@ -1079,10 +1110,10 @@ end
 function prototype.setDebugFunctionName(self: BytecodeBuilder, name: StringRef): ()
 	local index = self:addStringTableEntry(name)
 
-	self.functions:get(self.currentFunction).debugname = index
+	self.functions:get(self.currentFunction + 1).debugname = index
 
 	if self.dumpFunctionPtr then
-		self.functions:get(self.currentFunction).dumpname = name.data
+		self.functions:get(self.currentFunction + 1).dumpname = name.data
 	end
 end
 
@@ -1091,7 +1122,7 @@ end
 	@since v0.1.0
 ]=]
 function prototype.setDebugFunctionLineDefined(self: BytecodeBuilder, line: number): ()
-	self.functions:get(self.currentFunction).debuglinedefined = line
+	self.functions:get(self.currentFunction + 1).debuglinedefined = line
 end
 
 --[=[
@@ -1198,18 +1229,18 @@ function prototype.finalize(self: BytecodeBuilder): ()
 	end
 
 	for _, func in self.functions:data() do
-		capacity += #func.data
+		capacity += #func.data.s
 	end
 
 	-- Eli: Can not reserve string space, should probably switch to buffer so `capacity` can be used.
 	
 	-- assemble final bytecode blob
-	local version = self:getVersion()
+	local version = BytecodeBuilder.getVersion()
 	assert(version >= LuauBytecodeTag.LBC_VERSION_MIN and version <= LuauBytecodeTag.LBC_VERSION_MAX)
 
 	self.bytecode = string.char(version)
 
-	local typesversion = self:getTypeEncodingVersion()
+	local typesversion = BytecodeBuilder.getTypeEncodingVersion()
 	assert(typesversion >= LuauBytecodeTag.LBC_TYPE_VERSION_MIN and typesversion <= LuauBytecodeTag.LBC_TYPE_VERSION_MAX)
 	self.bytecode ..= string.char(typesversion)
 
@@ -1231,7 +1262,7 @@ function prototype.finalize(self: BytecodeBuilder): ()
 	writeVarInt(bytecodeWrap, uint32_t(self.functions:size()))
 
 	for _, func in self.functions:data() do
-		bytecodeWrap.s ..= func.data
+		bytecodeWrap.s ..= func.data.s
 	end
 
 	assert(self.mainFunction < self.functions:size())
@@ -1590,6 +1621,173 @@ end
 	@within BytecodeBuilder
 	@since v0.1.0
 ]=]
+function prototype.foldJumps(self: BytecodeBuilder): ()
+	-- if our function has long jumps, some processing below can make jump instructions not-jumps (e.g. JUMP->RETURN)
+	-- it's safer to skip this processing
+	if self.hasLongJumps then
+		return
+	end
+
+	for _, jump in self.jumps do
+		local jumpLabel = jump.source
+
+		local jumpInsn = self.insns:get(jumpLabel + 1)
+
+		-- follow jump target through forward unconditional jumps
+		-- we only follow forward jumps to make sure the process terminates
+		local targetLabel = jumpLabel + 1 + LUAU_INSN_D(jumpInsn)
+		assert(targetLabel < self.insns:size())
+		local targetInsn = self.insns:get(targetLabel + 1)
+
+		while LUAU_INSN_OP(targetInsn) == LuauOpcode.LOP_JUMP and LUAU_INSN_D(targetInsn) >= 0 do
+			targetLabel = targetLabel + 1 + LUAU_INSN_D(targetInsn)
+			assert(targetLabel < self.insns:size())
+			targetInsn = self.insns:get(targetLabel + 1)
+		end
+
+		local offset = int(targetLabel) - int(jumpLabel) - 1
+
+		-- for unconditional jumps to RETURN, we can replace JUMP with RETURN
+		if LUAU_INSN_OP(jumpInsn) == LuauOpcode.LOP_JUMP and LUAU_INSN_OP(targetInsn) == LuauOpcode.LOP_RETURN then
+			self.insns:set(jumpLabel + 1, targetInsn)
+		elseif int16_t(offset) == offset then
+			self.insns:set(jumpLabel + 1, bit32.band(self.insns:get(jumpLabel + 1), 0xffff))
+			self.insns:set(jumpLabel + 1, bit32.bor(self.insns:get(jumpLabel + 1), bit32.lshift(uint16_t(offset), 16)))
+		end
+
+		jump.target = targetLabel
+	end
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.expandJumps(self: BytecodeBuilder): ()
+	if not self.hasLongJumps then
+		return
+	end
+
+	-- we have some jump instructions that couldn't be patched which means their offset didn't fit into 16 bits
+	-- our strategy for replacing instructions is as follows: instead of
+	--   OP jumpoffset
+	-- we will synthesize a jump trampoline before our instruction (note that jump offsets are relative to next instruction):
+	--   JUMP +1
+	--   JUMPX jumpoffset
+	--   OP -2
+	-- the idea is that during forward execution, we will jump over JUMPX into OP; if OP decides to jump, it will jump to JUMPX
+	-- JUMPX can carry a 24-bit jump offset
+
+	-- jump trampolines expand the code size, which can increase existing jump distances.
+	-- because of this, we may need to expand jumps that previously fit into 16-bit just fine.
+	-- the worst-case expansion is 3x, so to be conservative we will repatch all jumps that have an offset >= 32767/3
+	local kMaxJumpDistanceConservative = 32767 / 3
+
+	--  we will need to process jumps in order
+	table.sort(self.jumps, function(lhs, rhs)
+		return lhs.source < rhs.source
+	end)
+
+	-- first, let's add jump thunks for every jump with a distance that's too big
+	-- we will create new instruction buffers, with remap table keeping track of the moves: remap[oldpc] = newpc
+	local remap: Vector<number> = Vector.new()
+	remap:reserve(self.insns:size())
+
+	local newinsns: Vector<number> = Vector.new()
+	local newlines: Vector<number> = Vector.new()
+
+	assert(self.insns:size() == self.lines:size())
+	newinsns:reserve(self.insns:size())
+	newlines:reserve(self.insns:size())
+
+	local currentJump = 0
+	local pendingTrampolines = 0
+
+	local i = 1
+
+	while i <= self.insns:size() do
+		local op = LUAU_INSN_OP(self.insns:get(i))
+		assert(op < LuauOpcode.LOP__COUNT)
+
+		if currentJump < #self.jumps and self.jumps[currentJump + 1].source == i then
+			local offset = int(self.jumps[currentJump + 1].target) - int(self.jumps[currentJump - 1].source) - 1
+
+			if math.abs(offset) > kMaxJumpDistanceConservative then
+				-- insert jump trampoline as described above; we keep JUMPX offset uninitialized in this pass
+				newinsns:push_back(bit32.bor(LuauOpcode.LOP_JUMP, bit32.lshift(1, 16)))
+				newinsns:push_back(LuauOpcode.LOP_JUMPX)
+
+				newlines:push_back(self.lines:get(i))
+				newlines:push_back(self.lines:get(i))
+
+				pendingTrampolines += 1
+			end
+		end
+
+		local oplen = getOpLength(op)
+
+		-- copy instruction and line info to the new stream
+		for _ = 1, oplen do
+			remap:set(i, uint32_t(newinsns:size()))
+
+			newinsns:push_back(self.insns:get(i))
+			newinsns:push_back(self.lines:get(i))
+
+			i += 1
+		end
+	end
+
+	assert(currentJump == #self.jumps)
+	assert(pendingTrampolines > 0)
+
+	-- now we need to recompute offsets for jump instructions - we could not do this in the first pass because the offsets are between *target*
+	-- instructions
+	for _, jump in self.jumps do
+		local offset = int(jump.target) - int(jump.source) - 1
+		local newoffset = int(remap:get(jump.target + 1)) - int(remap:get(jump.source + 1)) - 1
+
+		if math.abs(offset) > kMaxJumpDistanceConservative then
+			-- fix up jump trampoline
+			local insnt = newinsns:get(remap:get(jump.source + 1) - 1)
+			local insnj = newinsns:get(remap:get(jump.source + 1))
+
+			assert(LUAU_INSN_OP(insnt) == LuauOpcode.LOP_JUMPX)
+
+			-- patch JUMPX to JUMPX to target location; note that newoffset is the offset of the jump *relative to OP*, so we need to add 1 to make it
+			-- relative to JUMPX
+			insnt = bit32.band(insnt, 0xff)
+			insnt = bit32.bor(insnt, bit32.lshift(uint32_t(newoffset + 1), 8))
+
+			-- patch OP to OP -2
+			insnj = bit32.band(insnj, 0xffff)
+			insnj = bit32.bor(insnj, bit32.lshift(uint16_t(-2), 16))
+
+			pendingTrampolines -= 1
+		else
+			local insn = newinsns:get(remap:get(jump.source + 1) + 1)
+
+			-- make sure jump instruction had the correct offset before we started
+			assert(LUAU_INSN_D(insn) == offset)
+
+			-- patch instruction with the new offset
+			assert(int16_t(newoffset) == offset)
+
+			insn = bit32.band(insn, 0xffff)
+			insn = bit32.bor(insn, bit32.lshift(uint16_t(newoffset), 16))
+		end
+	end
+
+	assert(pendingTrampolines == 0)
+
+	-- this was hard, but we're done.
+	self.insns:swap(newinsns)
+	self.lines:swap(newlines)
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
 function BytecodeBuilder.getError(message: string): string
 	-- 0 acts as a special marker for error bytecode (it's equal to LBC_VERSION_TARGET for valid bytecode blobs)
 	local result = ""
@@ -1597,6 +1795,429 @@ function BytecodeBuilder.getError(message: string): string
 	result ..= message
 
 	return result
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function BytecodeBuilder.getVersion(): number
+	-- This function usually returns LBC_VERSION_TARGET but may sometimes return a higher number (within LBC_VERSION_MIN/MAX) under fast flags
+	return LuauBytecodeTag.LBC_VERSION_TARGET
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function BytecodeBuilder.getTypeEncodingVersion(): number
+	if FastVariables.LuauCompileTypeInfo and FastVariables.LuauCompileUserdataInfo then
+		return LuauBytecodeTag.LBC_TYPE_VERSION_TARGET
+	end
+
+	return if FastVariables.LuauCompileTypeInfo then 2 else LuauBytecodeTag.LBC_TYPE_VERSION_DEPRECATED
+end
+
+--[=[
+	@within BytecodeBuilder
+	@since v0.1.0
+]=]
+function prototype.validate(self: BytecodeBuilder): ()
+	self:validateInstructions()
+	self:validateVariadic()
+end
+
+local function VREG(v: number, func: Bytecode_Function): ()
+	assert(unsigned(v) < func.maxstacksize)
+end
+local function VREGRANGE(v: number, count: number, func: Bytecode_Function): ()
+	assert(unsigned(v + (if count < 0 then 0 else count)) <= func.maxstacksize)
+end
+local function VUPVAL(v: number, func: Bytecode_Function): ()
+	assert(unsigned(v) < func.numupvalues)
+end
+local function VCONST(v: number, kind: number, constants: Vector<Constant>)
+	assert(unsigned(v) < constants:size() and constants:get(v).type == kind)
+end
+local function VCONSTANY(v: number, constants: Vector<Constant>)
+	assert(unsigned(v) < constants:size())
+end
+local function VJUMP(v: number, i: number, insns: Vector<number>, insnvalid: Vector<number>): ()
+	assert((i + 1 + v - 1) < insns:size() and insnvalid:get(i + 1 + v) == 1)
+end
+
+function prototype.validateInstructions(self: BytecodeBuilder): ()
+	assert(self.currentFunction ~= bit32.bnot(0))
+
+	local func = self.functions:get(self.currentFunction + 1)
+
+	-- tag instruction offsets so that we can validate jumps
+	local insnvalid = Vector.new(self.insns:size(), 0)
+	local i = 1
+	while i <= self.insns:size() do
+		local insn = self.insns:get(i)
+		local op = LUAU_INSN_OP(insn)
+
+		insnvalid:set(i, btn(true))
+
+		i += getOpLength(op)
+		assert(i <= self.insns:size() + 1)
+	end
+
+	local openCaptures: Vector<number> = Vector.new()
+
+	-- validate individual instructions
+	local i = 1
+	while i <= self.insns:size() do
+		local insn = self.insns:get(i)
+		local op = LUAU_INSN_OP(insn)
+
+		if op == LuauOpcode.LOP_LOADNIL then
+			VREG(LUAU_INSN_A(insn), func)
+		elseif op == LuauOpcode.LOP_LOADB then
+			VREG(LUAU_INSN_A(insn), func)
+			assert(LUAU_INSN_B(insn) == 0 or LUAU_INSN_B(insn) == 1)
+			VJUMP(LUAU_INSN_C(insn), i, self.insns, insnvalid)
+		elseif op == LuauOpcode.LOP_LOADN then
+			VREG(LUAU_INSN_A(insn), func)
+		elseif op == LuauOpcode.LOP_LOADK then
+			VREG(LUAU_INSN_A(insn), func)
+			VCONSTANY(LUAU_INSN_D(insn), self.constants)
+		elseif op == LuauOpcode.LOP_MOVE then
+			VREG(LUAU_INSN_A(insn), func)
+			VREG(LUAU_INSN_B(insn), func)
+		elseif op == LuauOpcode.LOP_GETGLOBAL or op == LuauOpcode.LOP_SETGLOBAL then
+			VREG(LUAU_INSN_A(insn), func)
+			VCONST(self.insns:get(i + 1), Constant.Type.Type_String, self.constants)
+		elseif op == LuauOpcode.LOP_GETUPVAL or op == LuauOpcode.LOP_SETUPVAL then
+			VREG(LUAU_INSN_A(insn), func)
+			VUPVAL(LUAU_INSN_B(insn), func)
+		elseif op == LuauOpcode.LOP_CLOSEUPVALS then
+			VREG(LUAU_INSN_A(insn), func)
+			while openCaptures:size() > 0 and openCaptures:back() >= LUAU_INSN_A(insn) do
+				openCaptures:pop_back()
+			end
+		elseif op == LuauOpcode.LOP_GETIMPORT then
+			VREG(LUAU_INSN_A(insn), func)
+			VCONST(LUAU_INSN_D(insn), Constant.Type.Type_Import, self.constants)
+			local id = self.insns:get(i + 1)
+			assert(bit32.rshift(id, 30) ~= 0) -- import chain with length 1-3
+			for j = 0, bit32.rshift(id, 30) - 1 do
+				VCONST(bit32.band(bit32.rshift(id, 20 - 10 * j), 1023), Constant.Type.Type_String, self.constants)
+			end
+		elseif op == LuauOpcode.LOP_GETTABLE or op == LuauOpcode.LOP_SETTABLE then
+			VREG(LUAU_INSN_A(insn), func)
+			VREG(LUAU_INSN_B(insn), func)
+			VREG(LUAU_INSN_C(insn), func)
+		elseif op == LuauOpcode.LOP_GETTABLEKS or op == LuauOpcode.LOP_SETTABLEKS then
+			VREG(LUAU_INSN_A(insn), func)
+			VREG(LUAU_INSN_B(insn), func)
+			VCONST(self.insns:get(i + 1), Constant.Type.Type_String, self.constants)
+		elseif op == LuauOpcode.LOP_GETTABLEN or op == LuauOpcode.LOP_SETTABLEN then
+			VREG(LUAU_INSN_A(insn), func)
+			VREG(LUAU_INSN_B(insn), func)
+		elseif op == LuauOpcode.LOP_NEWCLOSURE then
+			VREG(LUAU_INSN_A(insn), func)
+			assert(unsigned(LUAU_INSN_D(insn)) < self.protos:size())
+			assert(self.protos:get(LUAU_INSN_D(insn) + 1) < self.functions:size())
+			local numupvalues = self.functions:get(self.protos:get(LUAU_INSN_D(insn) + 1) + 1).numupvalues
+
+			for j = 0, numupvalues - 1 do
+				assert(i + 1 + j < self.insns:size())
+				local cinsn = self.insns:get(i + 1 + j + 1)
+				assert(LUAU_INSN_OP(cinsn) == LuauOpcode.LOP_CAPTURE)
+			end
+		elseif op == LuauOpcode.LOP_NAMECALL then
+			VREG(LUAU_INSN_A(insn), func)
+			VREG(LUAU_INSN_B(insn), func)
+			VCONST(self.insns:get(i + 1), Constant.Type.Type_String, self.constants)
+			assert(LUAU_INSN_OP(self.insns:get(i + 2)) == LuauOpcode.LOP_CALL)
+		elseif op == LuauOpcode.LOP_CALL then
+			local nparams = LUAU_INSN_B(insn) - 1
+			local nresults = LUAU_INSN_C(insn) - 1
+			VREG(LUAU_INSN_A(insn), func)
+			VREGRANGE(LUAU_INSN_A(insn) + 1, nparams, func) -- 1..nparams
+			VREGRANGE(LUAU_INSN_A(insn), nresults, func)    -- 1..nresults
+		elseif op == LuauOpcode.LOP_RETURN then
+			local nresults = LUAU_INSN_B(insn) - 1
+			VREGRANGE(LUAU_INSN_A(insn), nresults, func) -- 0..nresults-1
+		elseif op == LuauOpcode.LOP_JUMP then
+			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
+		elseif op == LuauOpcode.LOP_JUMPIF or op == LuauOpcode.LOP_JUMPIFNOT then
+			VREG(LUAU_INSN_A(insn), func)
+			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
+		elseif
+			op == LuauOpcode.LOP_JUMPIFEQ
+			or op == LuauOpcode.LOP_JUMPIFLE
+			or op == LuauOpcode.LOP_JUMPIFLT
+			or op == LuauOpcode.LOP_JUMPIFNOTEQ
+			or op == LuauOpcode.LOP_JUMPIFNOTLE
+			or op == LuauOpcode.LOP_JUMPIFNOTLT
+		then
+			VREG(LUAU_INSN_A(insn), func)
+			VREG(self.insns:get(i + 1), func)
+			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
+		elseif op == LuauOpcode.LOP_JUMPXEQKNIL or op == LuauOpcode.LOP_JUMPXEQKB then
+			VREG(LUAU_INSN_A(insn), func)
+			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
+		elseif op == LuauOpcode.LOP_JUMPXEQKN then
+			VREG(LUAU_INSN_A(insn), func)
+			VCONST(bit32.band(self.insns:get(i + 1), 0xffffff), Constant.Type.Type_Number, self.constants)
+			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
+		elseif op == LuauOpcode.LOP_JUMPXEQKS then
+			VREG(LUAU_INSN_A(insn), func)
+			VCONST(bit32.band(self.insns:get(i + 1), 0xffffff), Constant.Type.Type_Number, self.constants)
+			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
+		elseif
+			op == LuauOpcode.LOP_ADD
+			or op == LuauOpcode.LOP_SUB
+			or op == LuauOpcode.LOP_MUL
+			or op == LuauOpcode.LOP_DIV
+			or op == LuauOpcode.LOP_IDIV
+			or op == LuauOpcode.LOP_MOD
+			or op == LuauOpcode.LOP_POW
+		then
+			VREG(LUAU_INSN_A(insn), func)
+			VREG(LUAU_INSN_B(insn), func)
+			VREG(LUAU_INSN_C(insn), func)
+		elseif
+			op == LuauOpcode.LOP_ADDK
+			or op == LuauOpcode.LOP_SUBK
+			or op == LuauOpcode.LOP_MUL
+			or op == LuauOpcode.LOP_DIVK
+			or op == LuauOpcode.LOP_IDIVK
+			or op == LuauOpcode.LOP_MODK
+			or op == LuauOpcode.LOP_POWK
+		then
+			VREG(LUAU_INSN_A(insn), func)
+			VREG(LUAU_INSN_B(insn), func)
+			VCONST(LUAU_INSN_C(insn), Constant.Type.Type_Number, self.constants)
+		elseif op == LuauOpcode.LOP_SUBRK or op == LuauOpcode.LOP_DIVRK then
+			VREG(LUAU_INSN_A(insn), func)
+			VCONST(LUAU_INSN_B(insn), Constant.Type.Type_Number, self.constants)
+			VREG(LUAU_INSN_C(insn), func)
+		elseif op == LuauOpcode.LOP_AND or op == LuauOpcode.LOP_OR then
+			VREG(LUAU_INSN_A(insn), func)
+			VREG(LUAU_INSN_B(insn), func)
+			VREG(LUAU_INSN_C(insn), func)
+		elseif op == LuauOpcode.LOP_ANDK or op == LuauOpcode.LOP_ORK then
+			VREG(LUAU_INSN_A(insn), func)
+			VREG(LUAU_INSN_B(insn), func)
+			VCONSTANY(LUAU_INSN_C(insn), self.constants)
+		elseif op == LuauOpcode.LOP_CONCAT then
+			VREG(LUAU_INSN_A(insn), func)
+			VREG(LUAU_INSN_B(insn), func)
+			VREG(LUAU_INSN_C(insn), func)
+			assert(LUAU_INSN_B(insn) <= LUAU_INSN_C(insn))
+		elseif
+			op == LuauOpcode.LOP_NOT
+			or op == LuauOpcode.LOP_MINUS
+			or op == LuauOpcode.LOP_LENGTH
+		then
+			VREG(LUAU_INSN_A(insn), func)
+			VREG(LUAU_INSN_B(insn), func)
+		elseif op == LuauOpcode.LOP_NEWTABLE then
+			VREG(LUAU_INSN_A(insn), func)
+		elseif op == LuauOpcode.LOP_DUPTABLE then
+			VREG(LUAU_INSN_A(insn), func)
+			VCONST(LUAU_INSN_D(insn), Constant.Type.Type_Table, self.constants)
+		elseif op == LuauOpcode.LOP_SETLIST then
+			local count = LUAU_INSN_C(insn) - 1
+			VREG(LUAU_INSN_A(insn), func)
+			VREGRANGE(LUAU_INSN_B(insn), count, func)
+		elseif op == LuauOpcode.LOP_FORNPREP or op == LuauOpcode.LOP_FORNLOOP then
+			-- for loop protocol: A, A+1, A+2 are used for iteration
+			VREG(LUAU_INSN_A(insn) + 2, func)
+			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
+		elseif op == LuauOpcode.LOP_FORGPREP then
+			-- forg loop protocol: A, A+1, A+2 are used for iteration protocol; A+3, ... are loop variables
+			VREG(LUAU_INSN_A(insn) + 2 + 1, func)
+			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
+		elseif op == LuauOpcode.LOP_FORGLOOP then
+			-- forg loop protocol: A, A+1, A+2 are used for iteration protocol; A+3, ... are loop variables
+			VREG(LUAU_INSN_A(insn) + 2 + uint16_t(self.insns:get(i + 1)), func)
+			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
+			assert(uint16_t(self.insns:get(i + 1)) >= 1)
+		elseif op == LuauOpcode.LOP_FORGPREP_INEXT or op == LuauOpcode.LOP_FORGPREP_NEXT then
+			VREG(LUAU_INSN_A(insn) + 4, func)
+			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
+		elseif op == LuauOpcode.LOP_GETVARARGS then
+			local nresults = LUAU_INSN_A(insn) - 1
+			VREGRANGE(LUAU_INSN_A(insn), nresults, func) -- 0..nresults-1
+		elseif op == LuauOpcode.LOP_DUPCLOSURE then
+			VREG(LUAU_INSN_A(insn), func)
+			VCONST(LUAU_INSN_D(insn), Constant.Type.Type_Closure, self.constants)
+			local proto = self.constants:get(LUAU_INSN_D(insn) + 1).valueClosure
+			assert(proto < self.functions:size())
+			local numupvalues = self.functions:get(proto + 1).numupvalues
+
+			for j = 0, numupvalues - 1 do
+				assert(i + 1 + j < self.insns:size())
+				local cinsn = self.insns:get(i + 1 + j + 1)
+				assert(LUAU_INSN_OP(cinsn) == LuauOpcode.LOP_CAPTURE)
+				assert(LUAU_INSN_A(cinsn) == LuauCaptureType.LCT_VAL or LUAU_INSN_A(cinsn) == LuauCaptureType.LCT_UPVAL)
+			end
+		elseif op == LuauOpcode.LOP_PREPVARARGS then
+			assert(LUAU_INSN_A(insn) == func.numparams)
+			assert(func.isvararg)
+		elseif op == LuauOpcode.LOP_BREAK then
+
+		elseif op == LuauOpcode.LOP_JUMPBACK then
+			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
+		elseif op == LuauOpcode.LOP_LOADKX then
+			VJUMP(LUAU_INSN_E(insn), i, self.insns, insnvalid)
+			VCONSTANY(self.insns:get(i + 1), self.constants)
+		elseif op == LuauOpcode.LOP_JUMPX then
+			VJUMP(LUAU_INSN_E(insn), i, self.insns, insnvalid)
+		elseif op == LuauOpcode.LOP_FASTCALL then
+			VJUMP(LUAU_INSN_C(insn), i, self.insns, insnvalid)
+			assert(LUAU_INSN_OP(self.insns:get(i + 1 + LUAU_INSN_C(insn))) == LuauOpcode.LOP_CALL)
+		elseif op == LuauOpcode.LOP_FASTCALL1 then
+			VREG(LUAU_INSN_B(insn), func)
+			VJUMP(LUAU_INSN_C(insn), i, self.insns, insnvalid)
+			assert(LUAU_INSN_OP(self.insns:get(i + 1 + LUAU_INSN_C(insn))) == LuauOpcode.LOP_CALL)
+		elseif op == LuauOpcode.LOP_FASTCALL2 then
+			VREG(LUAU_INSN_B(insn), func)
+			VJUMP(LUAU_INSN_C(insn), i, self.insns, insnvalid)
+			assert(LUAU_INSN_OP(self.insns:get(i + 1 + LUAU_INSN_C(insn))) == LuauOpcode.LOP_CALL)
+			VREG(self.insns:get(i + 1), func)
+		elseif op == LuauOpcode.LOP_FASTCALL2K then
+			VREG(LUAU_INSN_B(insn), func)
+			VJUMP(LUAU_INSN_C(insn), i, self.insns, insnvalid)
+			assert(LUAU_INSN_OP(self.insns:get(i + 1 + LUAU_INSN_C(insn))) == LuauOpcode.LOP_CALL)
+			VCONSTANY(self.insns:get(i + 1), self.constants)
+		elseif op == LuauOpcode.LOP_COVERAGE then
+
+		elseif op == LuauOpcode.LOP_CAPTURE then
+			if LUAU_INSN_A(insn) == LuauCaptureType.LCT_VAL then
+				VREG(LUAU_INSN_B(insn), func)
+			elseif LUAU_INSN_A(insn) == LuauCaptureType.LCT_REF then
+				VREG(LUAU_INSN_B(insn), func)
+				openCaptures:push_back(LUAU_INSN_B(insn))
+			elseif LUAU_INSN_A(insn) == LuauCaptureType.LCT_UPVAL then
+				VUPVAL(LUAU_INSN_B(insn), func)
+			else
+				error("Unsupported capture type")
+			end
+		else
+			error("Unsupported opcode")
+		end
+
+		i += getOpLength(op)
+		assert(i <= self.insns:size() + 1)
+	end
+
+	-- all CAPTURE REF instructions must have a CLOSEUPVALS instruction after them in the bytecode stream
+	-- this doesn't guarantee safety as it doesn't perform basic block based analysis, but if this fails
+	-- then the bytecode is definitely unsafe to run since the compiler won't generate backwards branches
+	-- except for loop edges
+	assert(openCaptures:empty())
+end
+
+function prototype.validateVariadic(self: BytecodeBuilder): ()
+	-- validate MULTRET sequences: instructions that produce a variadic sequence and consume one must come in pairs
+	-- we classify instructions into four groups: producers, consumers, neutral and others
+	-- any producer (an instruction that produces more than one value) must be followed by 0 or more neutral instructions
+	-- and a consumer (that consumes more than one value); these form a variadic sequence.
+	-- except for producer, no instruction in the variadic sequence may be a jump target.
+	-- from the execution perspective, producer adjusts L->top to point to one past the last result, neutral instructions
+	-- leave L->top unmodified, and consumer adjusts L->top back to the stack frame end.
+	-- consumers invalidate all values after L->top after they execute (which we currently don't validate)
+	local variadicSeq = false
+
+	local insntargets = Vector.new(self.insns:size(), 0)
+
+	local i = 1
+	while i <= self.insns:size() do
+		local insn = self.insns:get(i)
+		local op = LUAU_INSN_OP(insn)
+
+		local target = getJumpTarget(insn, uint32_t(i - 1))
+
+		if target >= 0 and not isFastCall(op) then
+			assert(unsigned(target) < self.insns:size())
+
+			insntargets:set(target, btn(true))
+		end
+
+		i += getOpLength(op)
+		assert(i <= self.insns:size() + 1)
+	end
+
+	local i = 1
+	while 1 <= self.insns:size() do
+		local insn = self.insns:get(i)
+		local op = LUAU_INSN_OP(insn)
+
+		if variadicSeq then
+			-- no instruction inside the sequence, including the consumer, may be a jump target
+			-- this guarantees uninterrupted L->top adjustment flow
+			assert(insntargets:get(i) == 0)
+		end
+
+		if op == LuauOpcode.LOP_CALL then
+			-- note: calls may end one variadic sequence and start a new one
+
+			if LUAU_INSN_B(insn) == 0 then
+				-- consumer instruction ends a variadic sequence
+				assert(variadicSeq)
+				variadicSeq = false
+			else
+				-- CALL is not a neutral instruction so it can't be present in a variadic sequence unless it's a consumer
+				assert(not variadicSeq)
+			end
+
+			if LUAU_INSN_C(insn) == 0 then
+				-- producer instruction starts a variadic sequence
+				assert(not variadicSeq)
+				variadicSeq = true
+			end
+		elseif op == LuauOpcode.LOP_GETVARARGS and LUAU_INSN_B(insn) == 0 then
+			-- producer instruction starts a variadic sequence
+			assert(not variadicSeq)
+			variadicSeq = true
+		elseif (op == LuauOpcode.LOP_RETURN and LUAU_INSN_B(insn) == 0) or (op == LuauOpcode.LOP_SETLIST and LUAU_INSN_C(insn) == 0) then
+			-- consumer instruction ends a variadic sequence
+			assert(variadicSeq)
+			variadicSeq = false
+		elseif op == LuauOpcode.LOP_FASTCALL then
+			local callTarget = int(i + LUAU_INSN_C(insn) + 1)
+			assert(unsigned(callTarget) <= self.insns:size() and LUAU_INSN_OP(self.insns:get(callTarget)) == LuauOpcode.LOP_CALL)
+
+			if LUAU_INSN_B(self.insns:get(callTarget)) == 0 then
+				-- consumer instruction ends a variadic sequence; however, we can't terminate it yet because future analysis of CALL will do it
+				-- during FASTCALL fallback, the instructions between this and CALL consumer are going to be executed before L->top so they must
+				-- be neutral; as such, we will defer termination of variadic sequence until CALL analysis
+				assert(variadicSeq)
+			else
+				assert(not variadicSeq)
+			end
+
+			-- note: if FASTCALL is linked to a CALL producer, the instructions between FASTCALL and CALL are technically not part of an executed
+			-- variadic sequence since they are never executed if FASTCALL does anything, so it's okay to skip their validation until CALL
+			-- (we can't simply start a variadic sequence here because that would trigger assertions during linked CALL validation)
+		elseif
+			op == LuauOpcode.LOP_CLOSEUPVALS
+			or op == LuauOpcode.LOP_NAMECALL
+			or op == LuauOpcode.LOP_GETIMPORT
+			or op == LuauOpcode.LOP_MOVE
+			or op == LuauOpcode.LOP_GETUPVAL
+			or op == LuauOpcode.LOP_GETGLOBAL
+			or op == LuauOpcode.LOP_GETTABLEKS
+			or op == LuauOpcode.LOP_COVERAGE
+		then
+			-- instructions inside a variadic sequence must be neutral (can't change L->top)
+			-- while there are many neutral instructions like this, here we check that the instruction is one of the few
+			-- that we'd expect to exist in FASTCALL fallback sequences or between consecutive CALLs for encoding reasons
+		else
+			assert(not variadicSeq)
+		end
+
+		i += getOpLength(op)
+		assert(i <= self.insns:size() + 1)
+	end
+
+	assert(not variadicSeq)
 end
 
 BytecodeBuilder.StringRef = StringRef

@@ -1,7 +1,47 @@
+local LuauOpcode = require("./LuauOpcode")
+local NumberConversions = require("@Polyfill/NumberConversions")
+
+local int32_t = NumberConversions.int32_t
+
 --[=[
 	@class BytecodeUtilities
 ]=]
 local BytecodeUtilities = {}
+
+--[=[
+	@within BytecodeUtilities
+	@since v0.1.0
+]=]
+function BytecodeUtilities.getOpLength(op: number): number
+	if
+		op == LuauOpcode.LOP_GETGLOBAL
+		or op == LuauOpcode.LOP_SETGLOBAL
+		or op == LuauOpcode.LOP_GETIMPORT
+		or op == LuauOpcode.LOP_GETTABLEKS
+		or op == LuauOpcode.LOP_SETTABLEKS
+		or op == LuauOpcode.LOP_NAMECALL
+		or op == LuauOpcode.LOP_JUMPIFEQ
+		or op == LuauOpcode.LOP_JUMPIFLE
+		or op == LuauOpcode.LOP_JUMPIFLT
+		or op == LuauOpcode.LOP_JUMPIFNOTEQ
+		or op == LuauOpcode.LOP_JUMPIFNOTLE
+		or op == LuauOpcode.LOP_JUMPIFNOTLT
+		or op == LuauOpcode.LOP_NEWTABLE
+		or op == LuauOpcode.LOP_SETLIST
+		or op == LuauOpcode.LOP_FORGLOOP
+		or op == LuauOpcode.LOP_LOADKX
+		or op == LuauOpcode.LOP_FASTCALL2
+		or op == LuauOpcode.LOP_FASTCALL2K
+		or op == LuauOpcode.LOP_JUMPXEQKNIL
+		or op == LuauOpcode.LOP_JUMPXEQKB
+		or op == LuauOpcode.LOP_JUMPXEQKN
+		or op == LuauOpcode.LOP_JUMPXEQKS
+	then
+		return 2
+	else
+		return 1
+	end
+end
 
 --[=[
 	@within BytecodeUtilities
@@ -23,6 +63,16 @@ function BytecodeUtilities.LUAU_INSN_B(insn: number): number
 end
 function BytecodeUtilities.LUAU_INSN_C(insn: number): number
 	return bit32.band(bit32.rshift(insn, 24), 0xff)
+end
+
+-- AD encoding: one 8-bit value, one signed 16-bit value
+function BytecodeUtilities.LUAU_INSN_D(insn: number): number
+	return bit32.rshift(int32_t(insn), 16)
+end
+
+-- E encoding: one signed 24-bit value
+function BytecodeUtilities.LUAU_INSN_E(insn: number): number
+	return bit32.rshift(int32_t(insn), 8)
 end
 
 return BytecodeUtilities

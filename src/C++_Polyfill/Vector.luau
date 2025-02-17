@@ -62,11 +62,22 @@ export type Vector<T> = typeof(setmetatable({} :: {
 	@within Vector
 	@since v0.1.0
 ]=]
-function Vector.new(): Vector<any>
-	return setmetatable({
+function Vector.new<T>(count: number?, value: T?): Vector<T>
+	local self = setmetatable({
 		_data = {},
 		_size = 0
 	}, metatable)
+
+	if count then
+		self:reserve(count)
+		if value then
+			for _ = 1, count do
+				self:push_back(value)
+			end
+		end
+	end
+
+	return self
 end
 
 --[=[
@@ -290,6 +301,15 @@ end
 ]=]
 function prototype.set_decrement(self: Vector<number>, index: number): ()
 	self._data[index] -= 1
+end
+
+--[=[
+	@within Vector
+	@since v0.1.0
+]=]
+function prototype.swap<T>(self: Vector<T>, other: Vector<T>): ()
+	self._data, other._data = other._data, self._data
+	self._size, other._size = other._size, self._size
 end
 
 --[=[
