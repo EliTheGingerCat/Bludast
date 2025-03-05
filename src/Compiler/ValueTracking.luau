@@ -53,8 +53,8 @@ function ValueTracking.Variable.new(): Variable
 	}
 end
 
-function ValueTracking.getGlobalState(globals: {[AstName]: number}, name: AstName): number
-	local it = globals[name]
+function ValueTracking.getGlobalState(globals: {[string]: number}, name: AstName): number
+	local it = globals[name.value or ""]
 
 	return it or ValueTracking.Global.Default
 end
@@ -63,13 +63,13 @@ local prototype = setmetatable({}, AstVisitor.metatable)
 local metatable = {__index = prototype}
 local ValueVisitor = {}
 type ValueVisitor = AstVisitor & {
-	globals: {[AstName]: number},
+	globals: {[string]: number},
 	variables: {[AstLocal]: Variable},
 
 	assign: (self: ValueVisitor, var: AstExpr) -> ()
 }
 
-function ValueVisitor.new(globals: {[AstName]: number}, variables: {[AstLocal]: Variable}): ValueVisitor
+function ValueVisitor.new(globals: {[string]: number}, variables: {[AstLocal]: Variable}): ValueVisitor
 	local self = AstVisitor.new() :: ValueVisitor
 	self.globals = globals
 	self.variables = variables
@@ -84,7 +84,7 @@ function prototype.assign(self: ValueVisitor, var: AstExpr): ()
 	if lv then
 		self.variables[lv.localAst].written = true
 	elseif gv then
-		self.globals[gv.name] = ValueTracking.Global.Written
+		self.globals[gv.name.value or ""] = ValueTracking.Global.Written
 	else
 		-- we need to be able to track assignments in all expressions, including crazy ones like t[function() t = nil end] = 5
 		var:visit(self)
@@ -93,10 +93,16 @@ end
 
 function prototype.visitAstStatLocal(self: ValueVisitor, node: AstStatLocal): boolean
 	for i = 1, math.min(#node.vars, #node.values) do
+		if not self.variables[node.vars[i]] then
+			self.variables[node.vars[i]] = ValueTracking.Variable.new()
+		end
 		self.variables[node.vars[i]].init = node.values[i]
 	end
 
-	for i = #node.values, #node.vars do
+	for i = #node.values + 1, #node.vars do
+		if not self.variables[node.vars[i]] then
+			self.variables[node.vars[i]] = ValueTracking.Variable.new()
+		end
 		self.variables[node.vars[i]].init = nil
 	end
 
@@ -123,6 +129,9 @@ function prototype.visitAstStatCompoundAssign(self: ValueVisitor, node: AstStatC
 end
 
 function prototype.visitAstStatLocalFunction(self: ValueVisitor, node: AstStatLocalFunction): boolean
+	if not self.variables[node.name] then
+		self.variables[node.name] = ValueTracking.Variable.new()
+	end
 	self.variables[node.name].init = node.func
 
 	return true
@@ -139,17 +148,17 @@ end
 	@within ValueTracking
 	@since 0.1.0
 ]=]
-function ValueTracking.assignMutable(globals: {[AstName]: number}, names: AstNameTable, mutableGlobals: {string}?): ()
+function ValueTracking.assignMutable(globals: {[string]: number}, names: AstNameTable, mutableGlobals: {string}?): ()
 	local name = names:get("_G")
 	if name and name.value then
-		globals[name] = ValueTracking.Global.Mutable
+		globals[name.value or ""] = ValueTracking.Global.Mutable
 	end
 
 	if mutableGlobals then
 		for _, global in mutableGlobals do
 			local name = names:get(global)
 			if name and name.value then
-				globals[name] = ValueTracking.Global.Mutable
+				globals[name.value or ""] = ValueTracking.Global.Mutable
 			end
 		end
 	end
@@ -159,7 +168,7 @@ end
 	@within ValueTracking
 	@since 0.1.0
 ]=]
-function ValueTracking.trackValues(globals: {[AstName]: number}, variables: {[AstLocal]: Variable}, root: AstNode): ()
+function ValueTracking.trackValues(globals: {[string]: number}, variables: {[AstLocal]: Variable}, root: AstNode): ()
 	local visitor = ValueVisitor.new(globals, variables)
 	root:visit(visitor)
 end

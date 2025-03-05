@@ -89,17 +89,23 @@ export type AstNameTable = typeof(setmetatable({} :: {
 }, metatable))
 
 function AstNameTable.new(): AstNameTable
-	return setmetatable({
+	local self = setmetatable({
 		data = {}
 	}, metatable)
+
+	for i = Lexeme.Type.Reserved_BEGIN, Lexeme.Type.Reserved_END - 1 do
+		self:addStatic(Lexeme.reserved[i - Lexeme.Type.Reserved_BEGIN + 1], i)
+	end
+
+	return self
 end
 
 --[=[
 	@within AstNameTable
 	@since v0.1.0
 ]=]
-function prototype.addStatic(self: AstNameTable, name: string, typeLexeme: number): AstName
-	local entry = Entry.new(AstName.new(name), #name, typeLexeme)
+function prototype.addStatic(self: AstNameTable, name: string, typeLexeme: number?): AstName
+	local entry = Entry.new(AstName.new(name), #name, typeLexeme or Lexeme.Type.Name)
 
 	-- No need for EntryHash, Luau tables already use hashing. Perhaps it is still more efficient to use FNV1a though?
 	self.data[name] = entry
@@ -114,11 +120,16 @@ end
 function prototype.getOrAddWithType(self: AstNameTable, name: string, length: number): Pair<AstName, number>
 	local entry = Entry.new(AstName.new(name), length, Lexeme.Type.Eof)
 	
-	-- entry already was inserted
-	if self.data[name] then
-		return Pair.new(entry.value, entry.type)
+	if self.data[name] == nil then
+		self.data[name] = entry
 	end
 
+	-- entry already was inserted
+	if self.data[name].type ~= Lexeme.Type.Eof then
+		return Pair.new(self.data[name].value, self.data[name].type)
+	end
+
+	entry.value = AstName.new(name)
 	entry.type = if name:sub(1, 1) == "@" then Lexeme.Type.Attribute else Lexeme.Type.Name
 
 	return Pair.new(entry.value, entry.type)

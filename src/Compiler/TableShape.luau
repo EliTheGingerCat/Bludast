@@ -115,7 +115,7 @@ local function hashField(field: Pair<AstExprTable, AstName>): string
 end
 
 function prototype.assignField(self: ShapeVisitor, expr: AstExpr, index: any): ()
-	if index.value then
+	if AstName.is(index) then
 		local index: AstName = index
 
 		local lv = expr:as(AstExprLocal)
@@ -126,6 +126,9 @@ function prototype.assignField(self: ShapeVisitor, expr: AstExpr, index: any): (
 
 				if not self.fields[field] then
 					self.fields[field] = true
+					if not self.shapes[exprTable] then
+						self.shapes[exprTable] = TableShapeStruct.new()
+					end
 					self.shapes[exprTable].hashSize += 1
 				end
 			end

@@ -60,7 +60,7 @@ function prototype.isMethod(self: Builtin, table: string, name: string): boolean
 	return self.object.value == table and self.method.value == name
 end
 
-function Builtins.getBuiltin(node: AstExpr, globals: {[AstName]: number}, variables: {[AstLocal]: Variable}): Builtin
+function Builtins.getBuiltin(node: AstExpr, globals: {[string]: number}, variables: {[AstLocal]: Variable}): Builtin
 	local exprLocal = node:as(AstExprLocal)
 	local exprIndexName = node:as(AstExprIndexName)
 	local exprGlobal = node:as(AstExprGlobal)
@@ -359,7 +359,7 @@ local BuiltinVisitor = {}
 type BuiltinVisitor = AstVisitor & {
 	result: {[AstExprCall]: number},
 
-	globals: {[AstName]: number},
+	globals: {[string]: number},
 	variables: {[AstLocal]: Variable},
 
 	options: CompileOptions
@@ -367,7 +367,7 @@ type BuiltinVisitor = AstVisitor & {
 
 function BuiltinVisitor.new(
 	result: {[AstExprCall]: number},
-	globals: {[AstName]: number},
+	globals: {[string]: number},
 	variables: {[AstLocal]: Variable},
 	options: CompileOptions
 ): BuiltinVisitor
@@ -380,7 +380,7 @@ function BuiltinVisitor.new(
 	return self
 end
 
-function BuiltinVisitor.visitAstExprCall(self: BuiltinVisitor, node: AstExprCall): boolean
+function prototypeVisitor.visitAstExprCall(self: BuiltinVisitor, node: AstExprCall): boolean
 	local builtin =
 		if node.self then Builtin.new()
 		else Builtins.getBuiltin(node.func, self.globals, self.variables)
@@ -404,7 +404,7 @@ end
 
 function Builtins.analyzeBuiltins(
 	result: {[AstExprCall]: number},
-	globals: {[AstName]: number},
+	globals: {[string]: number},
 	variables: {[AstLocal]: Variable},
 	options: CompileOptions,
 	root: AstNode

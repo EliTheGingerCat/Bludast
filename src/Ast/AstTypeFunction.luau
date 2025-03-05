@@ -58,8 +58,8 @@ AstTypeFunction.new = function(location, a2: any, a3: any, a4: any, a5: any, a6:
 
 	return self
 end :: (
-	  ((location: Location, generics: {AstGenericType}, genericPacks: {AstGenericTypePack}, argTypes: AstTypeList, argNames: {AstArgumentName?}, returnTypes: AstTypeList) -> AstTypeFunction)
-	& ((location: Location, attributes: {AstAttr}, generics: {AstGenericType}, genericPacks: {AstGenericTypePack}, argTypes: AstTypeList, argNames: {AstArgumentName?}, returnTypes: AstTypeList) -> AstTypeFunction)
+	  ((location: Location, generics: {AstGenericType}, genericPacks: {AstGenericTypePack}, argTypes: AstTypeList, argNames: {AstArgumentName | false}, returnTypes: AstTypeList) -> AstTypeFunction)
+	& ((location: Location, attributes: {AstAttr}, generics: {AstGenericType}, genericPacks: {AstGenericTypePack}, argTypes: AstTypeList, argNames: {AstArgumentName | false}, returnTypes: AstTypeList) -> AstTypeFunction)
 )
 
 function prototype.visit(self: AstTypeFunction, visitor: AstVisitor): ()

@@ -14,7 +14,7 @@ type Location = Location.Location
 ]=]
 local AstGenericTypePack = {}
 
-function AstGenericTypePack.new(name: AstName, location: Location, defaultValue: AstTypePack)
+function AstGenericTypePack.new(name: AstName, location: Location, defaultValue: AstTypePack?): AstGenericTypePack
 	return {
 		name = name,
 		location = location,

@@ -336,7 +336,8 @@ function Lexeme.new(location: Location.Location, typeAny: number | string, extra
 		object = {
 			type = typeAny,
 			location = location,
-			length = 0
+			length = 0,
+			codepoint = 0
 		}
 	elseif type(typeAny) == "string" and extra == nil and size == nil then
 		object = {
@@ -359,7 +360,7 @@ function Lexeme.new(location: Location.Location, typeAny: number | string, extra
 			length = 0,
 			name = extra
 		}
-		assert(table.find({Lexeme.Type.Name, Lexeme.Type.Attribute}, typeAny) or typeAny >= Lexeme.Type.Reserved_BEGIN and typeAny < Lexeme.Type.Reserved_END)
+		assert(typeAny == Lexeme.Type.Name or typeAny == Lexeme.Type.Attribute or (typeAny >= Lexeme.Type.Reserved_BEGIN and typeAny < Lexeme.Type.Reserved_END))
 	else
 		error(`Invalid arguments to Lexeme constructor: {location}, {typeAny}, {extra}, {size}.`)
 	end
@@ -464,7 +465,7 @@ function prototype.toString(self: Lexeme): string
 		return "'{{', which is invalid (did you mean '\\{'?)"
 
 	elseif self.type == Lexeme.Type.BrokenUnicode then
-		if self.codepoint then
+		if self.codepoint and self.codepoint ~= 0 then
 			local confusable = Confusables.findConfusable(self.codepoint)
 			if confusable then
 				return string.format("Unicode character U+%x (did you mean '%s'?)", self.codepoint, confusable)

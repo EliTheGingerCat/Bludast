@@ -32,6 +32,7 @@ local AstTypeIntersection = require("@Ast/AstTypeIntersection")
 local AstTypePackGeneric = require("@Ast/AstTypePackGeneric")
 local AstTypeReference = require("@Ast/AstTypeReference")
 local AstTypeTable = require("@Ast/AstTypeTable")
+local FastVariables = require("@Shared/FastVariables")
 local HotComment = require("@Ast/HotComment")
 local Lexeme = require("@Ast/Lexeme")
 local Lexer = require("@Ast/Lexer")
@@ -42,17 +43,18 @@ local ParseOptions = require("@Ast/ParseOptions")
 local ParseResult = require("@Ast/ParseResult")
 local Parser = require("@Ast/Parser")
 local Position = require("@Shared/Position")
+local ScopedVariable = require("@Shared/ScopedVariable")
 local Try = require("@Polyfill/Try")
 local Vector = require("@Polyfill/Vector")
 
 type AstStatBlock = AstStatBlock.AstStatBlock
+type FV = typeof(FastVariables)
 type ParseErrors = ParseErrors.ParseErrors
 
-local names = AstNameTable.new()
 local defaultOptions = ParseOptions.new(false, true)
 
 local function parse(source: string, options: ParseOptions.ParseOptions?): AstStatBlock?
-	local result = Parser.parse(source, #source, names, options or defaultOptions)
+	local result = Parser.parse(source, #source, AstNameTable.new(), options or defaultOptions)
 
 	if not result.errors:empty() then
 		error(ParseErrors.new(result.errors))
@@ -74,7 +76,7 @@ end
 
 local function matchParseError(source: string, message: string, location: Location.Location?): ParseResult.ParseResult
 	local options = ParseOptions.new(true, true)
-	local result = Parser.parse(source, #source, names, options)
+	local result = Parser.parse(source, #source, AstNameTable.new(), options)
 
 	assert(not result.errors:empty(), `Expected a parse error in '{source}'`)
 
@@ -93,7 +95,7 @@ local function matchParseErrorPrefix(source: string, prefix: string)
 	local options = ParseOptions.new()
 	options.allowDeclarationSyntax = true
 
-	local result = Parser.parse(source, #source, names, options)
+	local result = Parser.parse(source, #source, AstNameTable.new(), options)
 
 	assert(not result.errors:empty(), `Expected a parse error in '{source}'`)
 
@@ -110,7 +112,7 @@ local function tryParse(source: string, parseOptions: ParseOptions.ParseOptions?
 	local options = parseOptions or ParseOptions.new()
 	options.allowDeclarationSyntax = true
 
-	local result = Parser.parse(source, #source, names, options)
+	local result = Parser.parse(source, #source, AstNameTable.new(), options)
 	return result
 end
 
@@ -165,6 +167,7 @@ return {
 	end,
 	local_with_annotation = function()
 		local block = parse([[
+
 			local foo: string = "Hello Types!"
 		]])
 
@@ -183,11 +186,13 @@ return {
 	end,
 	type_names_can_contain_dots = function()
 		parse([[
+
 			local foo: SomeModule.CoolType
 		]])
 	end,
 	functions_can_have_return_annotations = function()
 		local block = parse([[
+
 			function foo(): number return 55 end
 		]])
 
@@ -203,6 +208,7 @@ return {
 	end,
 	functions_can_have_a_function_type_annotation = function()
 		local block = parse([[
+
 			function f(): (number) -> nil return nil end
 		]])
 
@@ -222,6 +228,7 @@ return {
 	end,
 	function_return_type_should_disambiguate_from_function_type_and_multiple_returns = function()
 		local block = parse([[
+
 			function f(): (number, string) return 1, "foo" end
 		]])
 
@@ -246,6 +253,7 @@ return {
 	end,
 	function_return_type_should_parse_as_function_type_annotation_with_no_args = function()
 		local block = parse([[
+
 			function f(): () -> nil return nil end
 		]])
 
@@ -272,6 +280,7 @@ return {
 	end,
 	annotations_can_be_tables = function()
 		local stat = parse([[
+
 			local zero: number
         	local one: {x: number, y: string}
 		]])
@@ -279,6 +288,7 @@ return {
 	end,
 	tables_should_have_an_indexer_and_keys = function()
 		local stat = parse([[
+
 			local t: {
 				[string]: number,
 				f: () -> nil
@@ -288,6 +298,7 @@ return {
 	end,
 	tables_can_have_trailing_separator = function()
 		local stat = parse([[
+
 			local zero: number
         	local one: {x: number, y: string, }
 		]])
@@ -296,6 +307,7 @@ return {
 	end,
 	tables_can_use_semicolons = function()
 		local stat = parse([[
+
 			local zero: number
         	local one: {x: number; y: string; }
 		]])
@@ -304,6 +316,7 @@ return {
 	end,
 	other_places_where_type_annotations_are_allowed = function()
 		local stat = parse([[
+
 			for i: number = 0, 50 do end
         	for i: number, s: string in expr() do end
 		]])
@@ -312,6 +325,7 @@ return {
 	end,
 	nil_is_a_valid_type_name = function()
 		local stat = parse([[
+
 			local n: nil
 		]])
 
@@ -319,6 +333,7 @@ return {
 	end,
 	function_type_annotation = function()
 		local stat = parse([[
+
 			local f: (number, string) -> nil
 		]])
 
@@ -326,6 +341,7 @@ return {
 	end,
 	functions_can_return_multiple_values = function()
 		local stat = parse([[
+
 			local f: (number) -> (number, number)
 		]])
 
@@ -333,6 +349,7 @@ return {
 	end,
 	functions_can_have_0_arguments = function()
 		local stat = parse([[
+
 			local f: () -> number
 		]])
 
@@ -340,6 +357,7 @@ return {
 	end,
 	functions_can_return_0_values = function()
 		local stat = parse([[
+
 			local f: (number) -> ()
 		]])
 
@@ -347,6 +365,7 @@ return {
 	end,
 	intersection_of_two_function_types_if_no_returns = function()
 		local block = parse([[
+
 			local f: (string) -> () & (number) -> ()
 		]])
 
@@ -360,6 +379,7 @@ return {
 	end,
 	intersection_of_two_function_types_if_two_or_more_returns = function()
 		local block = parse([[
+
 			local f: (string) -> (string, number) & (number) -> (number, string)
 		]])
 
@@ -373,6 +393,7 @@ return {
 	end,
 	return_type_is_an_intersection_type_if_led_with_one_parenthesized_type = function()
 		local block = parse([[
+
 			local f: (string) -> (string) & (number) -> (number)
 		]])
 
@@ -389,7 +410,8 @@ return {
 	end,
 	type_alias_to_a_typeof = function()
 		local block = parse([[
-        type A = typeof(1)"
+
+        type A = typeof(1)
 		]])
 
 		assert(block)
@@ -401,6 +423,7 @@ return {
 	end,
 	type_alias_should_point_to_string = function()
 		local block = parse([[
+
 			type A = string
 		]])
 
@@ -410,6 +433,7 @@ return {
 	end,
 	type_alias_should_not_interfere_with_type_function_call_or_assignment = function()
 		local block = parse([[
+
 			type("a")
         	type = nil
 		]])
@@ -425,6 +449,7 @@ return {
 	end,
 	type_alias_should_work_when_name_is_also_local = function()
 		local block = parse([[
+
 			local A = nil
         	type A = string
 		]])
@@ -436,6 +461,7 @@ return {
 	end,
 	type_alias_span_is_correct = function()
 		local block = parse([[
+
         type Packed1<T...> = (T...) -> (T...)
         type Packed2<T...> = (Packed1<T...>, T...) -> (Packed1<T...>, T...)
 		]])
@@ -452,35 +478,43 @@ return {
 	end,
 	parse_error_messages = function()
 		assert(getParseError([[
+
 			local a: (number, number) -> (string
 		]]) == "Expected ')' (to close '(' at line 2), got <eof>")
 
 		assert(getParseError([[
+
 			local a: (number, number) -> (
 				string
 		]]) == "Expected ')' (to close '(' at line 2), got <eof>")
 
 		assert(getParseError([[
+
 			local a: (number, number)
 		]]) == "Expected '->' when parsing function type, got <eof>")
 	
 		assert(getParseError([[
+
 			local a: (number, number
 		]]) == "Expected ')' (to close '(' at line 2), got <eof>")
 
 		assert(getParseError([[
+
 			local a: {foo: string,
 		]]) == "Expected identifier when parsing table field, got <eof>")
 
 		assert(getParseError([[
+
 			local a: {foo: string
 		]]) == "Expected '}' (to close '{' at line 2), got <eof>")
 
 		assert(getParseError([[
+
 			local a: { [string]: number, [number]: string }
 		]]) == "Cannot have more than one table indexer")
 
 		assert(getParseError([[
+
 			type T = <a>foo
 		]]) == "Expected '(' when parsing function parameters, got 'foo'")
 	end,
@@ -505,6 +539,7 @@ return {
 	end,
 	type_assertion_expression = function()
 		parse([[
+
 			local a = something() :: any
 		]])
 	end,
@@ -515,6 +550,7 @@ return {
 	end,
 	type_assertion_expression_binds_tightly = function()
 		local stat = parse([[
+
 			local a = one :: any + two :: any
 		]])
 
@@ -585,6 +621,7 @@ return {
 	end,
 	parse_error_type_name = function()
 		assert(getParseError([[
+
 			local a: Foo.=
 		]]) == "Expected identifier when parsing field name, got '='")
 	end,
@@ -637,6 +674,7 @@ return {
 	end,
 	error_on_unicode = function()
 		assert(getParseError([[
+
 			local ☃ = 10
 		]]) == "Expected identifier when parsing variable name, got Unicode character U+2603")
 	end,
@@ -646,6 +684,7 @@ return {
 	end,
 	error_on_confusable = function()
 		assert(getParseError([[
+
 			local pi = 3․13
 		]]) == "Expected identifier when parsing expression, got Unicode character U+2024 (did you mean '.'?)")
 	end,
@@ -687,6 +726,7 @@ return {
 	end,
 	parse_continue = function()
 		local stat = parse([[
+
 			while true do
 				continue()
 				continue = 5
@@ -718,6 +758,7 @@ return {
 	end,
 	parse_export_type = function()
 		local stat = parse([[
+
 			export()
 			export = 5
 			export, export = export
@@ -739,6 +780,7 @@ return {
 	export_is_an_identifier_only_when_followed_by_type = function()
 		Try(function()
 			parse([[
+
 				export function a() end
 			]])
 			error("Expected ParseErrors to be thrown")
@@ -751,6 +793,7 @@ return {
 	end,
 	parse_compound_assignment = function()
 		local block = parse([[
+
 			a += 5
 		]])
 
@@ -762,6 +805,7 @@ return {
 	parse_compound_assignment_error_call = function()
 		Try(function()
 			parse([[
+
 				a() += 5
 			]])
 			error("Expected ParseErrors to be thrown")
@@ -772,6 +816,7 @@ return {
 	parse_compound_assignment_error_not_lvalue = function()
 		Try(function()
 			parse([[
+
 				(a) += 5
 			]])
 			error("Expected ParseErrors to be thrown")
@@ -782,6 +827,7 @@ return {
 	parse_compound_assignment_error_multiple = function()
 		Try(function()
 			parse([[
+
 				a, b += 5
 			]])
 			error("Expected ParseErrors to be thrown")
@@ -791,6 +837,7 @@ return {
 	end,
 	parse_interpolated_string_double_brace_begin = function()
 		local success, e = pcall(parse, [[
+
 			_ = `{{oops}}`
 		]])
 		if success then
@@ -800,6 +847,7 @@ return {
 	end,
 	parse_interpolated_string_double_brace_mid = function()
 		local success, e = pcall(parse, [[
+
 			_ = `{nice} {{oops}}`
 		]])
 		if success then
@@ -823,12 +871,14 @@ return {
 			return column
 		end
 
+		-- This makes sure that the error is coming from the brace itself
 		assert(columnOfEndBraceError("_ = `{a`") == columnOfEndBraceError("_ = `{abcdefg`"))
-		assert(columnOfEndBraceError("_ = `{a`") == columnOfEndBraceError("_ =       `{a`"))
+		assert(columnOfEndBraceError("_ = `{a`") ~= columnOfEndBraceError("_ =       `{a`"))
 	end,
 	parse_interpolated_string_without_end_brace_in_table = function()
 		Try(function()
 			parse([[
+
 				_ = { `{a` }
 			]])
 			error("Expected ParseErrors to be thrown")
@@ -842,6 +892,7 @@ return {
 	parse_interpolated_string_mid_without_end_brace_in_table = function()
 		Try(function()
 			parse([[
+
 				_ = { `x {"y"} {z` }
 			]])
 			error("Expected ParseErrors to be thrown")
@@ -855,6 +906,7 @@ return {
 	parse_interpolated_string_as_type_fail = function()
 		Try(function()
 			parse([[
+
 				local a: `what` = `???`
 				local b: `what {"the"}` = `???`
 				local c: `what {"the"} heck` = `???`
@@ -871,6 +923,7 @@ return {
 	parse_interpolated_string_call_without_parens = function()
 		Try(function()
 			parse([[
+
 				_ = print `{42}`
 			]])
 			error("Expected ParseErrors to be thrown")
@@ -881,6 +934,7 @@ return {
 	parse_interpolated_string_without_expression = function()
 		Try(function()
 			parse([[
+
 				print(`{}`)
 			]])
 			error("Expected ParseErrors to be thrown")
@@ -890,6 +944,7 @@ return {
 
 		Try(function()
 			parse([[
+
 				print(`{}{1}`)
 			]])
 			error("Expected ParseErrors to be thrown")
@@ -900,6 +955,7 @@ return {
 	parse_interpolated_string_malformed_escape = function()
 		Try(function()
 			parse([[
+
 				local a = `???\xQQ {1}`
 			]])
 			error("Expected ParseErrors to be thrown")
@@ -910,6 +966,7 @@ return {
 	parse_interpolated_string_weird_token = function()
 		Try(function()
 			parse([[
+
 				local a = `??? {42 !!}`
 			]])
 			error("Expected ParseErrors to be thrown")
@@ -1069,6 +1126,7 @@ end
 	parse_error_table_literal = function()
 		Try(function()
 			parse([[
+
 function stringifyTable(t)
     local foo = (name = t)
     return foo
@@ -1083,6 +1141,7 @@ end
 	parse_error_function_call = function()
 		Try(function()
 			parse([[
+
 function stringifyTable(t)
     local foo = t:Parse 2
     return foo
@@ -1097,6 +1156,7 @@ end
 	parse_error_function_call_newline = function()
 		Try(function()
 			parse([[
+
 function stringifyTable(t)
     local foo = t:Parse
     return foo
@@ -1109,26 +1169,26 @@ end
 		end)
 	end,
 	parse_error_with_too_many_nested_type_group = function()
-		-- TODO should set FInt::LuauRecursionLimit to 10
-
-		matchParseError(
-			"function f(): ((((((((((Fail)))))))))) end", "Exceeded allowed recursion depth; simplify your type annotation to make the code compile")
-
-		matchParseError("function f(): () -> () -> () -> () -> () -> () -> () -> () -> () -> () -> () end",
-			"Exceeded allowed recursion depth; simplify your type annotation to make the code compile")
+		ScopedVariable({LuauRecursionLimit = 10} :: FV, function()
+			matchParseError(
+				"function f(): ((((((((((Fail)))))))))) end", "Exceeded allowed recursion depth; simplify your type annotation to make the code compile")
 	
-		matchParseError("local t: {a: {b: {c: {d: {e: {f: {g: {h: {i: {j: {}}}}}}}}}}}",
-			"Exceeded allowed recursion depth; simplify your type annotation to make the code compile")
-	
-		matchParseError("local f: ((((((((((Fail))))))))))", "Exceeded allowed recursion depth; simplify your type annotation to make the code compile")
-	
-		matchParseError("local t: a & (b & (c & (d & (e & (f & (g & (h & (i & (j & nil)))))))))",
-			"Exceeded allowed recursion depth; simplify your type annotation to make the code compile")
+			matchParseError("function f(): () -> () -> () -> () -> () -> () -> () -> () -> () -> () -> () end",
+				"Exceeded allowed recursion depth; simplify your type annotation to make the code compile")
+		
+			matchParseError("local t: {a: {b: {c: {d: {e: {f: {g: {h: {i: {j: {}}}}}}}}}}}",
+				"Exceeded allowed recursion depth; simplify your type annotation to make the code compile")
+		
+			matchParseError("local f: ((((((((((Fail))))))))))", "Exceeded allowed recursion depth; simplify your type annotation to make the code compile")
+		
+			matchParseError("local t: a & (b & (c & (d & (e & (f & (g & (h & (i & (j & nil)))))))))",
+				"Exceeded allowed recursion depth; simplify your type annotation to make the code compile")
+		end)
 	end,
 	can_parse_complex_unions_successfully = function()
-		-- TODO should set FInt::LuauRecursionLimit and FInt::LuauTypeLengthLimit to 10
+		ScopedVariable({LuauRecursionLimit = 10, LuauTypeLengthLimit = 10} :: FV, function()
+				parse([[
 
-		parse([[
 local f:
 () -> ()
 |
@@ -1148,43 +1208,49 @@ local f:
 ]])
 
 		parse([[
+
 local f: a? | b? | c? | d? | e? | f? | g? | h?
 ]])
 
 		matchParseError("local t: a & b & c & d & e & f & g & h & i & j & nil",
 			"Exceeded allowed type length; simplify your type annotation to make the code compile")
+		end)
 	end,
 	parse_error_with_too_many_nested_if_statements = function()
-		-- TODO should set FInt::LuauRecursionLimit to 10
+		ScopedVariable({LuauRecursionLimit = 10} :: FV, function()
+			matchParseErrorPrefix([[
 
-		matchParseErrorPrefix([[
-			function f() if true then if true then if true then if true then if true then if true then if true then if true then if true
-        	then if true then if true then end end end end end end end end end end end end
-		]], "Exceeded allowed recursion depth;")
+				function f() if true then if true then if true then if true then if true then if true then if true then if true then if true
+				then if true then if true then end end end end end end end end end end end end
+			]], "Exceeded allowed recursion depth;")
+		end)
 	end,
 	parse_error_with_too_many_changed_elseif_statements = function()
-		-- TODO should set FInt::LuauRecursionLimit to 10
+		ScopedVariable({LuauRecursionLimit = 10} :: FV, function()
+			matchParseErrorPrefix([[
 
-		matchParseErrorPrefix([[
-			function f() if false then elseif false then elseif false then elseif false then elseif false then elseif false then elseif
-        	false then elseif false then elseif false then elseif false then elseif false then end end
-		]], "Exceeded allowed recursion depth;")
+				function f() if false then elseif false then elseif false then elseif false then elseif false then elseif false then elseif
+				false then elseif false then elseif false then elseif false then elseif false then end end
+			]], "Exceeded allowed recursion depth;")
+		end)
 	end,
 	parse_error_with_too_many_nested_ifelse_expressions1 = function()
-		-- TODO should set FInt::LuauRecursionLimit to 10
+		ScopedVariable({LuauRecursionLimit = 10} :: FV, function()
+			matchParseError([[
 
-		matchParseError([[
-			function f() return if true then 1 elseif true then 2 elseif true then 3 elseif true then 4 elseif true then 5 elseif true then
-            6 elseif true then 7 elseif true then 8 elseif true then 9 elseif true then 10 else 11 end
-		]], "Exceeded allowed recursion depth; simplify your expression to make the code compile")
+				function f() return if true then 1 elseif true then 2 elseif true then 3 elseif true then 4 elseif true then 5 elseif true then
+				6 elseif true then 7 elseif true then 8 elseif true then 9 elseif true then 10 else 11 end
+			]], "Exceeded allowed recursion depth; simplify your expression to make the code compile")
+		end)
 	end,
 	parse_error_with_too_many_nested_ifelse_expressions2 = function()
-		-- TODO should set FInt::LuauRecursionLimit to 10
+		ScopedVariable({LuauRecursionLimit = 10} :: FV, function()
+			matchParseError([[
 
-		matchParseError([[
-			function f() return if if if if if if if if if if true then false else true then false else true then false else true then false else true
-        	then false else true then false else true then false else true then false else true then false else true then 1 else 2 end
-		]], "Exceeded allowed recursion depth; simplify your expression to make the code compile")
+				function f() return if if if if if if if if if if true then false else true then false else true then false else true then false else true
+				then false else true then false else true then false else true then false else true then false else true then 1 else 2 end
+			]], "Exceeded allowed recursion depth; simplify your expression to make the code compile")
+		end)
 	end,
 	unparenthesized_function_return_type_list = function()
 		matchParseError(
@@ -1197,6 +1263,7 @@ local f: a? | b? | c? | d? | e? | f? | g? | h?
 
 		-- Will throw if the parse fails
 		parse([[
+
 			type Vector3MT = {
             	__add: (Vector3MT, Vector3MT) -> Vector3MT,
             	__mul: (Vector3MT, Vector3MT|number) -> Vector3MT
@@ -1205,6 +1272,7 @@ local f: a? | b? | c? | d? | e? | f? | g? | h?
 	end,
 	short_array_types = function()
 		local stat = parse([[
+
 			local n: {string}
 		]])
 
@@ -1227,6 +1295,7 @@ local f: a? | b? | c? | d? | e? | f? | g? | h?
 	end,
 	short_array_types_do_not_break_field_names = function()
 		local stat = parse([[
+
 			local n: {string: number}
 		]])
 
@@ -1256,7 +1325,7 @@ local f: a? | b? | c? | d? | e? | f? | g? | h?
 		assert(#ec.args == 1)
 		local arg = ec.args[1]:as(AstExprConstantString)
 		assert(arg)
-		assert(arg.value == "foo")
+		assert(arg.value == "bar")
 	end,
 	multiline_strings_newlines = function()
 		local stat = parse("return [=[\nfoo\r\nbar\n\nbaz\n]=]")
@@ -1271,6 +1340,7 @@ local f: a? | b? | c? | d? | e? | f? | g? | h?
 	end,
 	string_literals_escape = function()
 		local stat = parse([[
+
 return
 "foo\n\r",
 "foo\0324",
@@ -1287,6 +1357,7 @@ return
 
 		local str = ret.list[1]:as(AstExprConstantString)
 		assert(str)
+		print(str.value:gsub("\n", "\\n"):gsub("\r", "\\r"))
 		assert(str.value == "foo\n\r")
 
 		local str = ret.list[2]:as(AstExprConstantString)
@@ -1316,6 +1387,7 @@ return
 
 		local str = ret.list[1]:as(AstExprConstantString)
 		assert(str)
+		print((str.value:gsub("\r", "\\r"):gsub("\n", "\\n")))
 		assert(str.value == "foobar")
 
 		local str = ret.list[2]:as(AstExprConstantString)
@@ -1328,6 +1400,7 @@ return
 	end,
 	string_literals_escapes = function()
 		local stat = parse([[
+
 return
 "\xAB",
 "\u{2024}",
@@ -1392,6 +1465,7 @@ return
 	end,
 	number_literals = function()
 		local stat = parse([[
+
 return
 1,
 1.5,
@@ -1433,6 +1507,7 @@ return
 	end,
 	end_extent_of_functions_unions_and_intersections = function()
 		local block = parse([[
+
         type F = (string) -> string
         type G = string | number | boolean
         type H = string & number & boolean
@@ -1447,6 +1522,7 @@ return
 	end,
 	end_extent_doesnt_consume_comments = function()
 		local block = parse([[
+
         type F = number
         --comment
         print('hello')
@@ -1462,6 +1538,7 @@ return
 		opts.captureComments = true
 
 		local block = parse([[
+
         type F = number
         --comment
         print('hello')
@@ -1479,6 +1556,7 @@ return
 	end,
 	parse_error_confusing_function_call = function()
 		local result1 = matchParseError([[
+
 			function add(x, y) return x + y end
 			add
 			(4, 7)
@@ -1488,6 +1566,7 @@ return
 		assert(result1.errors:size() == 1)
 
 		local result2 = matchParseError([[
+
 			function add(x, y) return x + y end
 			local f = add
 			(f :: any)['x'] = 2
@@ -1497,6 +1576,7 @@ return
 		assert(result2.errors:size() == 1)
 
 		local result3 = matchParseError([[
+
 			local x = {}
 			function x:add(a, b) return a + b end
 			x:add
@@ -1507,6 +1587,7 @@ return
 		assert(result3.errors:size() == 1)
 
 		local result4 = matchParseError([[
+
 			local t = {}
 			function f() return t end
 			t.x, (f)
@@ -1521,11 +1602,13 @@ return
 	end,
 	parse_error_assignment_lvalue = function()
 		matchParseError([[
+
 			local a, b
 			(2), b = b, a
 		]], "Assigned expression must be a variable or a field")
 
 		matchParseError([[
+
 			local a, b
 			a, (3) = b, a
 		]], "Assigned expression must be a variable or a field")
@@ -1563,6 +1646,7 @@ return
 	end,
 	parse_declarations = function()
 		local stat = parseEx([[
+
 			declare foo: number
 			declare function bar(x: number): string
 			declare function var(...: any)
@@ -1592,6 +1676,7 @@ return
 	end,
 	parse_class_declarations = function()
 		local stat = parseEx([[
+
 			declare class Foo
 				prop: number
 				function method(self, foo: number): string
@@ -1633,6 +1718,7 @@ return
 	end,
 	class_method_properties = function()
 		local p1 = matchParseError([[
+
 			declare class Foo
 				-- method's first parameter must be 'self'
 				function method(foo: number)
@@ -1648,6 +1734,7 @@ return
 		assert(2 == #klass.props)
 
 		local p2 = matchParseError([[
+
 			declare class Foo
 				function method(self, foo)
 				function method2()
@@ -1663,6 +1750,7 @@ return
 	end,
 	class_indexer = function()
 		local stat = parseEx([[
+
 			declare class Foo
 				prop: boolean
 				[string]: number
@@ -1681,6 +1769,7 @@ return
 		assert(assert(declaredClass.indexer.resultType:as(AstTypeReference)).name.value == "number")
 
 		local p1 = matchParseError([[
+
 			declare class Foo
 				[string]: number
 				-- can only have one indexer
@@ -1697,6 +1786,7 @@ return
 	parse_variadics = function()
 		--clang-format off
 		local stat = parseEx([[
+
 			function foo(bar, ...: number): ...string
 			end
 
@@ -1737,6 +1827,7 @@ return
 	end,
 	variadic_definition_parsing = function()
 		local stat = parseEx([[
+
 			declare function foo(...: string): ...string
 			declare class Foo
 				function a(self, ...: string): ...string
@@ -1750,6 +1841,7 @@ return
 	end,
 	generic_pack_parsing = function()
 		local result = parseEx([[
+
 			function f<a...>(...: a...)
 			end
 
@@ -1782,6 +1874,7 @@ return
 	end,
 	generic_function_declaration_parsing = function()
 		local result = parseEx([[
+
 			declare function f<a, b, c...>()
 		]])
 
@@ -1869,6 +1962,7 @@ return
 	end,
 	parse_type_alias_default_type = function()
 		local stat = parse([[
+
 type A<T = string> = {}
 type B<T... = ...number> = {}
 type C<T..., U... = T...> = {}
@@ -1952,6 +2046,7 @@ type G<T... = ...number, U... = (string, number, boolean)> = (U...) -> T...
 	end,
 	parse_type_pack_type_parameters = function()
 		local stat = parse([[
+
 type Packed<T...> = () -> T...
 
 type A<X...> = Packed<X...>
@@ -1972,6 +2067,7 @@ type C<X...> = Packed<(number, X...)>
 	multiple_parse_errors = function()
 		Try(function()
 			parse([[
+
 local a = 3 * (
 return a +
 			]])
@@ -1984,6 +2080,7 @@ return a +
 	statement_error_recovery_expected = function()
 		Try(function()
 			parse([[
+
 function a(a, b) return a + b end
 some
 a(2, 5)
@@ -1995,15 +2092,17 @@ a(2, 5)
 	end,
 	statement_error_recovery_unexpected = function()
 		Try(function()
-			parse("(+)")
+			parse("+")
 			error("Expected ParseErrors to be thrown")
 		end):catch(function(e: ParseErrors)
+			print(e:getErrors():size())
 			assert(1 == e:getErrors():size())
 		end)
 	end,
 	extra_token_in_consume = function()
 		Try(function()
 			parse([[
+
 function test + (a, f) return a + f end
 return test(2, 3)
 			]])
@@ -2016,6 +2115,7 @@ return test(2, 3)
 	extra_token_in_consume_match = function()
 		Try(function()
 			parse([[
+
 function test(a, f+) return a + f end
 return test(2, 3)
 			]])
@@ -2028,6 +2128,7 @@ return test(2, 3)
 	extra_token_in_consume_match_end = function()
 		Try(function()
 			parse([[
+
 if true then
     return 12
 then
@@ -2042,6 +2143,7 @@ end
 	extra_table_indexer_recovery = function()
 		Try(function()
 			parse([[
+
 local a : { [string] : number, [number] : string, count: number }
 			]])
 			error("Expected ParseErrors to be thrown")
@@ -2050,24 +2152,26 @@ local a : { [string] : number, [number] : string, count: number }
 		end)
 	end,
 	recovery_error_limit_1 = function()
-		-- TODO test passes, but should set FInt::LuauParseErrorLimit to 1
-		Try(function()
-			parse("local a = ")
-			error("Expected ParseErrors to be thrown")
-		end):catch(function(e: ParseErrors)
-			assert(1 == e:getErrors():size())
-			assert(e:getErrors():front():getMessage() == e:what())
+		ScopedVariable({LuauParseErrorLimit = 1} :: FV, function()
+			Try(function()
+				parse("local a = ")
+				error("Expected ParseErrors to be thrown")
+			end):catch(function(e: ParseErrors)
+				assert(1 == e:getErrors():size())
+				assert(e:getErrors():front():getMessage() == e:what())
+			end)
 		end)
 	end,
 	recovery_error_limit_2 = function()
-		-- TODO should set FInt::LuauParseErrorLimit to 2
-		Try(function()
-			parse("escape escape escape")
-			error("Expected ParseErrors to be thrown")
-		end):catch(function(e: ParseErrors)
-			assert(3 == e:getErrors():size())
-			assert("3 parse errors" == e:what())
-			assert("Reached error limit (2)" == e:getErrors():back():getMessage())
+		ScopedVariable({LuauParseErrorLimit = 2} :: FV, function()
+			Try(function()
+				parse("escape escape escape")
+				error("Expected ParseErrors to be thrown")
+			end):catch(function(e: ParseErrors)
+				assert(3 == e:getErrors():size())
+				assert("3 parse errors" == e:what())
+				assert("Reached error limit (2)" == e:getErrors():back():getMessage())
+			end)
 		end)
 	end,
 	recovery_of_parenthesized_expressions = function()
@@ -2075,12 +2179,13 @@ local a : { [string] : number, [number] : string, count: number }
 	end,
 	incomplete_method_call = function()
 		local source = [[
+
 			function howdy()
 				return game:
 			end
 		]]
 		
-		local result = Parser.parse(source, #source, names, ParseOptions.new())
+		local result = Parser.parse(source, #source, AstNameTable.new(), ParseOptions.new())
 
 		assert(1 == #assert(result.root).body)
 
@@ -2093,10 +2198,12 @@ local a : { [string] : number, [number] : string, count: number }
 		local ret = body.body[1]:as(AstStatReturn)
 		assert(ret)
 
+		print(howdyFunction.location.finish, body.location.finish)
 		assert(howdyFunction.location.finish > body.location.finish)
 	end,
 	incomplete_method_call_2 = function()
 		local source = [[
+
 			local game = { GetService=function(s) return 'hello' end }
 
 			function a()
@@ -2104,7 +2211,7 @@ local a : { [string] : number, [number] : string, count: number }
 			end
 		]]
 
-		local result = Parser.parse(source, #source, names, ParseOptions.new())
+		local result = Parser.parse(source, #source, AstNameTable.new(), ParseOptions.new())
 
 		assert(2 == #assert(result.root).body)
 
@@ -2121,6 +2228,7 @@ local a : { [string] : number, [number] : string, count: number }
 	end,
 	incomplete_method_call_still_yields_an_AstExprIndexName = function()
 		local result = tryParse([[
+
 			game:
 		]])
 
@@ -2177,8 +2285,9 @@ local a : { [string] : number, [number] : string, count: number }
 		options.captureComments = true
 
 		local result = tryParse([[
+
         --[[
-		]], options)
+    ]], options)
 
 		assert(1 == result.commentLocations:size())
 		assert(Location.new(Position.new(1, 8), Position.new(2, 4)) :: any == result.commentLocations:get(1).location)
@@ -2188,10 +2297,11 @@ local a : { [string] : number, [number] : string, count: number }
 		options.captureComments = true
 
 		local result = tryParse([[
+
         local a = "test"
 
         --[[broken!
-		]], options)
+    ]], options)
 
 		assert(1 == result.commentLocations:size())
 		assert(Location.new(Position.new(3, 8), Position.new(4, 4)) :: any == result.commentLocations:get(1).location)
@@ -2199,6 +2309,7 @@ local a : { [string] : number, [number] : string, count: number }
 	empty_function_type_error_recovery = function()
 		Try(function()
 			parse([[
+
 type Fn = (
     any,
     string | number | ()
@@ -2242,6 +2353,7 @@ type Fn = (
 	generic_type_list_recovery = function()
 		Try(function()
 			parse([[
+
 local function foo<T..., U>(a: U, ...: T...): (U, ...T) return a, ... end
 return foo(1, 2 -- to check for a second error after recovery
 			]])
@@ -2253,12 +2365,14 @@ return foo(1, 2 -- to check for a second error after recovery
 	end,
 	recover_index_name_keyword = function()
 		local result = tryParse([[
+
 local b
 local a = b.do
 		]])
 		assert(1 == result.errors:size())
 
 		result = tryParse([[
+
 local b
 local a = b.
 do end
@@ -2268,12 +2382,14 @@ do end
 	end,
 	recover_self_call_keyword = function()
 		local result = tryParse([[
+
 local b
 local a = b:do
 		]])
 		assert(2 == result.errors:size())
 
 		result = tryParse([[
+
 local b
 local a = b:do
 		]])
@@ -2281,12 +2397,14 @@ local a = b:do
 	end,
 	recover_type_index_name_keyword = function()
 		local result = tryParse([[
+
 local A
 local b : A.do
 		]])
 		assert(1 == result.errors:size())
 
 		result = tryParse([[
+
 local A
 local b : A.do
 do end
@@ -2295,12 +2413,14 @@ do end
 	end,
 	recover_expected_type_pack = function()
 		local result = tryParse([[
+
 type Y<T..., U = T...> = (T...) -> U...
 		]])
 		assert(1 == result.errors:size())
 	end,
 	recover_unexpected_type_pack = function()
 		local result = tryParse([[
+
 type X<T...> = { a: T..., b: number }
 type Y<T> = { a: T..., b: number }
 type Z<T> = { a: string | T..., b: number }
@@ -2310,6 +2430,7 @@ type Z<T> = { a: string | T..., b: number }
 	end,
 	recover_function_return_type_annotations = function()
 		local result = tryParse([[
+
 type Custom<A, B, C> = { x: A, y: B, z: C }
 type Packed<A...> = { x: (A...) -> () }
 type F = (number): Custom<boolean, number, string>
@@ -2324,6 +2445,7 @@ end
 	end,
 	error_message_for_using_function_as_type_annotation = function()
 		local result = tryParse([[
+
 			type Foo = function
 		]])
 		assert(1 == result.errors:size())
@@ -2334,6 +2456,7 @@ end
 	end,
 	get_a_nice_error_when_there_is_an_extra_comma_at_the_end_of_a_function_argument_list = function()
 		local result = tryParse([[
+
         foo(a, b, c,)
 		]])
 
@@ -2344,6 +2467,7 @@ end
 	end,
 	get_a_nice_error_when_there_is_an_extra_comma_at_the_end_of_a_function_parameter_list = function()
 		local result = tryParse([[
+
         export type VisitFn = (
             any,
             Array<TAnyNode | Array<TAnyNode>>, -- extra comma here
@@ -2357,13 +2481,14 @@ end
 	end,
 	get_a_nice_error_when_there_is_an_extra_comma_at_the_end_of_a_generic_parameter_list = function()
 		local result = tryParse([[
+
         export type VisitFn = <A, B,>(a: A, b: B) -> ()
-		]])
+    ]])
 
 		assert(1 == result.errors:size())
 
 		assert(Location.new(Position.new(1, 36), Position.new(1, 37)) :: any == result.errors:get(1):getLocation())
-		assert("Expected type after ',' but got ')' instead" == result.errors:get(1):getMessage())
+		assert("Expected type after ',' but got '>' instead" == result.errors:get(1):getMessage())
 
 		assert(1 == #assert(result.root).body)
 
@@ -2377,6 +2502,7 @@ end
 	end,
 	get_a_nice_error_when_there_is_no_comma_between_table_members = function()
 		local result = tryParse([[
+
         local t = {
             first = 1
             second = 2,
@@ -2393,6 +2519,7 @@ end
 		assert(1 == #assert(result.root).body)
 
 		--[[
+
 		TODO
 
 		AstExprTable* table = Luau::query<AstExprTable>(result.root);
@@ -2402,6 +2529,7 @@ end
 	end,
 	get_a_nice_error_when_there_is_no_comma_after_last_table_member = function()
 		local result = tryParse([[
+
         local t = {
             first = 1
 
@@ -2417,6 +2545,7 @@ end
 		assert(3 == #assert(result.root).body)
 
 		--[[
+
 		TODO
 
 		AstExprTable* table = Luau::query<AstExprTable>(result.root);
@@ -2426,6 +2555,7 @@ end
 	end,
 	missing_default_type_pack_argument_after_variadic_type_parameter = function()
 		local result = tryParse([[
+
         type Foo<T... = > = nil
 		]])
 
@@ -2439,6 +2569,7 @@ end
 	end,
 	table_type_keys_cant_contain_nul = function()
 		local result = tryParse([[
+
         type Foo = { ["\0"]: number }
 		]])
 
@@ -2449,6 +2580,7 @@ end
 	end,
 	invalid_escape_literals_get_reported_but_parsing_continues = function()
 		local result = tryParse([[
+
         local foo = "\xQQ"
         print(foo)
 		]])
@@ -2463,6 +2595,7 @@ end
 	end,
 	unfinished_string_literals_get_reported_but_parsing_continues = function()
 		local result = tryParse([[
+
         local foo = "hi
         print(foo)
 		]])
@@ -2477,6 +2610,7 @@ end
 	end,
 	unfinished_string_literal_types_get_reported_but_parsing_continues = function()
 		local result = tryParse([[
+
         type Foo = "hi
         print(foo)
 		]])
@@ -2491,6 +2625,7 @@ end
 	end,
 	do_block_with_no_end = function()
 		local result = tryParse([[
+
 			do
 		]])
 
@@ -2502,114 +2637,133 @@ end
 		assert(not stat0.hasEnd)
 	end,
 	parse_interpolated_string_with_lookahead_involved = function()
-		-- TODO should set FFlag::LuauLexerLookaheadRemembersBraceType to true
+		ScopedVariable({LuauLexerLookaheadRemembersBraceType = true} :: FV, function()
+			local result = tryParse([[
 
-		local result = tryParse([[
-			local x = `{ {y} }`
-		]])
+				local x = `{ {y} }`
+			]])
 
-		assert(result.errors:empty(), result.errors:get(1):getMessage())
+			if not result.errors:empty() then
+				error(result.errors:get(1):getMessage())
+			end
+		end)
 	end,
 	parse_interpolated_string_with_lookahead_involved2 = function()
-		-- TODO should set FFlag::LuauLexerLookaheadRemembersBraceType to true
+		ScopedVariable({LuauLexerLookaheadRemembersBraceType = true} :: FV, function()
+			local result = tryParse([[
 
-		local result = tryParse([[
-			local x = `{ { y{} } }`
-		]])
-
-		assert(result.errors:empty(), result.errors:get(1):getMessage())
+				local x = `{ { y{} } }`
+			]])
+	
+			if not result.errors:empty() then
+				error(result.errors:get(1):getMessage())
+			end
+		end)
 	end,
 	parse_top_level_checked_fn = function()
 		local opts = ParseOptions.new()
 		opts.allowDeclarationSyntax = true
-		-- TODO should set FFlag::LuauAttributeSyntax to true
 
-		local src = [[
-			@checked declare function abs(n: number): number
-		]]
-		
-		local pr = tryParse(src, opts)
-		assert(pr.errors:size() == 0)
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local src = [[
 
-		assert(#assert(pr.root).body == 1)
-		local root = pr.root.body[1]
-		local func = root:as(AstStatDeclareFunction)
-		assert(func)
-		assert(func:isCheckedFunction())
+				@checked declare function abs(n: number): number
+			]]
+			
+			local pr = tryParse(src, opts)
+			assert(pr.errors:size() == 0)
+	
+			assert(#assert(pr.root).body == 1)
+			local root = pr.root.body[1]
+			local func = root:as(AstStatDeclareFunction)
+			assert(func)
+			assert(func:isCheckedFunction())
+		end)
 	end,
 	parse_declared_table_checked_member = function()
 		local opts = ParseOptions.new()
 		opts.allowDeclarationSyntax = true
-		-- TODO should set FFlag::LuauAttributeSyntax to true
 
-		local src = [[
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local src = [[
+
     declare math : {
         abs : @checked (number) -> number
 }
-		]]
+]]
 
-		local pr = tryParse(src, opts)
-		assert(pr.errors:size() == 0)
+			local pr = tryParse(src, opts)
+			assert(pr.errors:size() == 0)
 
-		assert(#assert(pr.root).body == 1)
-		local root = pr.root.body[1]
-		local glob = root:as(AstStatDeclareGlobal)
-		assert(glob)
-		local tbl = glob.type:as(AstTypeTable)
-		assert(tbl)
-		assert(#tbl.props == 1)
-		local prop = tbl.props[1]
-		local func = prop.type:as(AstTypeFunction)
-		assert(func)
-		assert(func:isCheckedFunction())
+			assert(#assert(pr.root).body == 1)
+			local root = pr.root.body[1]
+			local glob = root:as(AstStatDeclareGlobal)
+			assert(glob)
+			local tbl = glob.type:as(AstTypeTable)
+			assert(tbl)
+			assert(#tbl.props == 1)
+			local prop = tbl.props[1]
+			local func = prop.type:as(AstTypeFunction)
+			assert(func)
+			assert(func:isCheckedFunction())
+		end)
 	end,
 	parse_checked_outside_decl_fails = function()
 		local opts = ParseOptions.new()
 		opts.allowDeclarationSyntax = true
-		-- TODO should set FFlag::LuauAttributeSyntax to true
 
-		local pr = tryParse([[
-			local @checked = 3
-		]], opts)
-		assert(pr.errors:size() > 0)
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local pr = tryParse([[
+
+				local @checked = 3
+			]], opts)
+			assert(pr.errors:size() > 0)
+		end)
 	end,
 	parse_checked_in_and_out_of_decl_fails = function()
 		local opts = ParseOptions.new()
 		opts.allowDeclarationSyntax = true
-		-- TODO should set FFlag::LuauAttributeSyntax to true
 
-		local pr = tryParse([[
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local pr = tryParse([[
+
     local @checked = 3
     @checked declare function abs(n: number): number
-		]], opts)
-		assert(pr.errors:size() == 2)
-		assert(pr.errors:get(1):getLocation().begin.line == 1)
-		assert(pr.errors:get(2):getLocation().begin.line == 1)
+			]], opts)
+			assert(pr.errors:size() == 2)
+			assert(pr.errors:get(1):getLocation().begin.line == 1)
+			assert(pr.errors:get(2):getLocation().begin.line == 1)
+		end)
 	end,
 	parse_checked_as_function_name_fails = function()
 		local opts = ParseOptions.new()
 		opts.allowDeclarationSyntax = true
-		-- TODO should set FFlag::LuauAttributeSyntax to true
 
-		local pr = tryParse([[
-			@checked function(x: number) : number
-			end
-		]], opts)
-		assert(pr.errors:size() > 0)
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local pr = tryParse([[
+
+				@checked function(x: number) : number
+				end
+			]], opts)
+			assert(pr.errors:size() > 0)
+		end)
 	end,
 	["cannot_use_@_as_variable_name"] = function()
 		local opts = ParseOptions.new()
 		opts.allowDeclarationSyntax = true
-		-- TODO should set FFlag::LuauAttributeSyntax to true
 
-		local pr = tryParse([[
-			local @blah = 3
-		]])
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local pr = tryParse([[
 
-		assert(pr.errors:size() > 0)
+				local @blah = 3
+			]])
+	
+			assert(pr.errors:size() > 0)
+		end)
 	end,
 	read_write_table_properties = function()
 		local pr = tryParse([[
+
 			type A = {read x: number}
 			type B = {write x: number}
 			type C = {read x: number, write x: number}
@@ -2628,121 +2782,128 @@ end
 		assert(pr.errors:size() == 0)
 	end,
 	parse_attribute_on_function_stat = function()
-		-- TODO should set FFlag::LuauAttributeSyntax to true
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local stat = parse([[
 
-		local stat = parse([[
 @checked
 function hello(x, y)
     return x + y
 end]])
-
-		assert(stat)
-
-		local statFun = stat.body[1]:as(AstStatFunction)
-		assert(statFun)
-
-		local attributes = statFun.func.attributes
-
-		assert(#attributes == 1)
-
-		checkAttribute(attributes[1], AstAttr.Type.Checked, Location.new(Position.new(1, 0), Position.new(1, 8)))
+		
+			assert(stat)
+	
+			local statFun = stat.body[1]:as(AstStatFunction)
+			assert(statFun)
+	
+			local attributes = statFun.func.attributes
+	
+			assert(#attributes == 1)
+	
+			checkAttribute(attributes[1], AstAttr.Type.Checked, Location.new(Position.new(1, 0), Position.new(1, 8)))
+		end)
 	end,
 	parse_attribute_for_function_expression = function()
-		-- TODO should set FFlag::LuauAttributeSyntax and FFlag::LuauAttributeSyntaxFunExpr to true
+		ScopedVariable({LuauAttributeSyntax = true, LuauAttributeSyntaxFunExpr = true} :: FV, function()
+			local stat1 = parse([[
 
-		local stat1 = parse([[
 local function invoker(f)
     return f(1)
 end
 
 invoker(@checked function(x) return (x + 2) end)
-		]])
+			]])
+	
+			assert(stat1)
+	
+			local func1 = assert(assert(stat1.body[2]:as(AstStatExpr)).expr:as(AstExprCall)).args[1]:as(AstExprFunction)
+			assert(func1)
+	
+			local attributes1 = func1.attributes
+	
+			assert(#attributes1 == 1)
+	
+			checkAttribute(attributes1[1], AstAttr.Type.Checked, Location.new(Position.new(5, 8), Position.new(5, 16)))
+	
+			local stat2 = parse([[
 
-		assert(stat1)
-
-		local func1 = assert(assert(stat1.body[1]:as(AstStatExpr)).expr:as(AstExprCall)).args[1]:as(AstExprFunction)
-		assert(func1)
-
-		local attributes1 = func1.attributes
-
-		assert(#attributes1 == 1)
-
-		checkAttribute(attributes1[1], AstAttr.Type.Checked, Location.new(Position.new(5, 8), Position.new(5, 16)))
-
-		local stat2 = parse([[
 local f = @checked function(x) return (x + 2) end
-		]])
-
-		assert(stat2)
-
-		local func2 = assert(stat2.body[1]:as(AstStatLocal)).values[1]:as(AstExprFunction)
-		assert(func2)
-
-		local attributes2 = func2.attributes
-
-		assert(#attributes2 == 1)
-
-		checkAttribute(attributes2[1], AstAttr.Type.Checked, Location.new(Position.new(1, 10), Position.new(1, 18)))
+			]])
+	
+			assert(stat2)
+	
+			local func2 = assert(stat2.body[1]:as(AstStatLocal)).values[1]:as(AstExprFunction)
+			assert(func2)
+	
+			local attributes2 = func2.attributes
+	
+			assert(#attributes2 == 1)
+	
+			checkAttribute(attributes2[1], AstAttr.Type.Checked, Location.new(Position.new(1, 10), Position.new(1, 18)))
+		end)
 	end,
 	parse_attribute_on_local_function_stat = function()
-		-- TODO should set FFlag::LuauAttributeSyntax to true
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local stat = parse([[
 
-		local stat = parse([[
     @checked
 local function hello(x, y)
     return x + y
 end]])
-
-		assert(stat)
-
-		local statFun = stat.body[1]:as(AstStatLocalFunction)
-		assert(statFun)
-
-		local attributes = statFun.func.attributes
-
-		assert(#attributes == 1)
-
-		checkAttribute(attributes[1], AstAttr.Type.Checked, Location.new(Position.new(1, 4), Position.new(1, 12)))
+			
+			assert(stat)
+	
+			local statFun = stat.body[1]:as(AstStatLocalFunction)
+			assert(statFun)
+	
+			local attributes = statFun.func.attributes
+	
+			assert(#attributes == 1)
+	
+			checkAttribute(attributes[1], AstAttr.Type.Checked, Location.new(Position.new(1, 4), Position.new(1, 12)))
+		end)
 	end,
 	empty_attribute_name_is_not_allowed = function()
-		-- TODO should set FFlag::LuauAttributeSyntax to true
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local result = tryParse([[
 
-		local result = tryParse([[
 @
 function hello(x, y)
     return x + y
 end]])
 
-		checkFirstErrorForAttributes(result.errors, 1, Location.new(Position.new(1, 0), Position.new(1, 1)), "Attribute name is missing")
+			checkFirstErrorForAttributes(result.errors, 1, Location.new(Position.new(1, 0), Position.new(1, 1)), "Attribute name is missing")
+		end)
 	end,
 	dont_parse_attributes_on_non_function_stat = function()
-		-- TODO should set FFlag::LuauAttributeSyntax to true
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local pr1 = tryParse([[
 
-		local pr1 = tryParse([[
 @checked
 if a<0 then a = 0 end]])
-		checkFirstErrorForAttributes(
-			pr1.errors,
-			1,
-			Location.new(Position.new(2, 0), Position.new(2, 2)),
-			"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'if' intead"
-		)
+			checkFirstErrorForAttributes(
+				pr1.errors,
+				1,
+				Location.new(Position.new(2, 0), Position.new(2, 2)),
+				"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'if' intead"
+			)
 
-		local pr2 = tryParse([[
+			local pr2 = tryParse([[
+
 local i = 1
 @checked
 while a[i] do
     print(a[i])
     i = i + 1
 end]])
-		checkFirstErrorForAttributes(
-			pr2.errors,
-			1,
-			Location.new(Position.new(3, 0), Position.new(2, 2)),
-			"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'while' intead"
-		)
+			checkFirstErrorForAttributes(
+				pr2.errors,
+				1,
+				Location.new(Position.new(3, 0), Position.new(2, 2)),
+				"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'while' intead"
+			)
 
-		local pr3 = tryParse([[
+			local pr3 = tryParse([[
+
 @checked
 do
     local a2 = 2*a
@@ -2750,241 +2911,254 @@ do
     x1 = (-b + d)/a2
     x2 = (-b - d)/a2
 end]])
-		checkFirstErrorForAttributes(
-			pr3.errors,
-			1,
-			Location.new(Position.new(2, 0), Position.new(2, 2)),
-			"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'do' intead"
-		)
+			checkFirstErrorForAttributes(
+				pr3.errors,
+				1,
+				Location.new(Position.new(2, 0), Position.new(2, 2)),
+				"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'do' intead"
+			)
 
-		local pr4 = tryParse([[
+			local pr4 = tryParse([[
+
 @checked
 for i=1,10 do print(i) end
 		]])
-		checkFirstErrorForAttributes(
-			pr4.errors,
-			1,
-			Location.new(Position.new(2, 0), Position.new(2, 3)),
-			"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'for' intead"
-		)
+			checkFirstErrorForAttributes(
+				pr4.errors,
+				1,
+				Location.new(Position.new(2, 0), Position.new(2, 3)),
+				"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'for' intead"
+			)
 
-		local pr5 = tryParse([[
+			local pr5 = tryParse([[
+
 @checked
 repeat
     line = io.read()
 until line ~= ""
 		]])
-		checkFirstErrorForAttributes(
-			pr5.errors,
-			1,
-			Location.new(Position.new(2, 0), Position.new(2, 6)),
-			"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'repeat' intead"
-		)
+			checkFirstErrorForAttributes(
+				pr5.errors,
+				1,
+				Location.new(Position.new(2, 0), Position.new(2, 6)),
+				"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'repeat' intead"
+			)
 
-		local pr6 = tryParse([[
+			local pr6 = tryParse([[
+
 @checked
 local x = 10
 		]])
-		checkFirstErrorForAttributes(
-			pr6.errors,
-			1,
-			Location.new(Position.new(2, 6), Position.new(2, 7)),
-			"Expected 'function' after local declaration with attribute, but got 'x' intead"
-		)
+			checkFirstErrorForAttributes(
+				pr6.errors,
+				1,
+				Location.new(Position.new(2, 6), Position.new(2, 7)),
+				"Expected 'function' after local declaration with attribute, but got 'x' intead"
+			)
 
-		local pr7 = tryParse([[
+			local pr7 = tryParse([[
+
 local i = 1
 while a[i] do
     if a[i] == v then @checked break end
     i = i + 1
 end
 		]])
-		checkFirstErrorForAttributes(
-			pr7.errors,
-			1,
-			Location.new(Position.new(3, 31), Position.new(3, 36)),
-			"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'break' intead"
-		)
+			checkFirstErrorForAttributes(
+				pr7.errors,
+				1,
+				Location.new(Position.new(3, 31), Position.new(3, 36)),
+				"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'break' intead"
+			)
 
-		local pr8 = tryParse([[
+			local pr8 = tryParse([[
+
 function foo1 () @checked return 'a' end
 		]])
-		checkFirstErrorForAttributes(
-			pr8.errors,
-			1,
-			Location.new(Position.new(1, 26), Position.new(1, 32)),
-			"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'return' intead"
-		)
+			checkFirstErrorForAttributes(
+				pr8.errors,
+				1,
+				Location.new(Position.new(1, 26), Position.new(1, 32)),
+				"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'return' intead"
+			)
+		end)
 	end,
 	dont_parse_attribute_on_argument_non_function = function()
-		-- TODO should set FFlag::LuauAttributeSyntax and FFlag::LuauAttributeSyntaxFunExpr to true
+		ScopedVariable({LuauAttributeSyntax = true, LuauAttributeSyntaxFunExpr = true} :: FV, function()
+			local pr = tryParse([[
 
-		local pr = tryParse([[
 local function invoker(f, y)
     return f(y)
 end
 
 invoker(function(x) return (x + 2) end, @checked 1)
-		]])
-
-		checkFirstErrorForAttributes(
-			pr.errors,
-			1,
-			Location.new(Position.new(5, 40), Position.new(5, 48)),
-			"Expected 'function' declaration after attribute, but got '1' intead"
-		)
+			]])
+	
+			checkFirstErrorForAttributes(
+				pr.errors,
+				1,
+				Location.new(Position.new(5, 40), Position.new(5, 48)),
+				"Expected 'function' declaration after attribute, but got '1' intead"
+			)
+		end)
 	end,
 	parse_attribute_on_function_type_declaration = function()
-		-- TODO should set FFlag::LuauAttributeSyntax to true
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local opts = ParseOptions.new()
+			opts.allowDeclarationSyntax = true
+	
+			local src = [[
 
-		local opts = ParseOptions.new()
-		opts.allowDeclarationSyntax = true
-
-		local src = [[
 @checked declare function abs(n: number): number
-		]]
-
-		local pr = tryParse(src, opts)
-		assert(pr.errors:size() == 0)
-
-		assert(#assert(pr.root).body == 1)
-
-		local root = pr.root.body[1]
-
-		local func = root:as(AstStatDeclareFunction)
-		assert(func)
-
-		assert(func:isCheckedFunction())
-
-		local attributes = func.attributes
-
-		checkAttribute(attributes[1], AstAttr.Type.Checked, Location.new(Position.new(1, 0), Position.new(1, 8)))
+			]]
+	
+			local pr = tryParse(src, opts)
+			assert(pr.errors:size() == 0)
+	
+			assert(#assert(pr.root).body == 1)
+	
+			local root = pr.root.body[1]
+	
+			local func = root:as(AstStatDeclareFunction)
+			assert(func)
+	
+			assert(func:isCheckedFunction())
+	
+			local attributes = func.attributes
+	
+			checkAttribute(attributes[1], AstAttr.Type.Checked, Location.new(Position.new(1, 0), Position.new(1, 8)))
+		end)
 	end,
 	parse_attributes_on_function_type_declaration_in_table = function()
-		-- TODO should set FFlag::LuauAttributeSyntax to true
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local opts = ParseOptions.new()
+			opts.allowDeclarationSyntax = true
+	
+			local src = [[
 
-		local opts = ParseOptions.new()
-		opts.allowDeclarationSyntax = true
-
-		local src = [[
 declare bit32: {
     band: @checked (...number) -> number
 }]]
-
-		local pr = tryParse(src, opts)
-		assert(pr.errors:size() == 0)
-
-		assert(#assert(pr.root).body == 1)
-
-		local root = pr.root.body[1]
-
-		local glob = root:as(AstStatDeclareGlobal)
-		assert(glob)
-
-		local tbl = glob.type:as(AstTypeTable)
-		assert(tbl)
-
-		assert(#tbl.props == 1)
-		local prop = tbl.props[1]
-
-		local func = prop.type:as(AstTypeFunction)
-		assert(func)
-
-		local attributes = func.attributes
-
-		assert(#attributes == 1)
-		checkAttribute(attributes[1], AstAttr.Type.Checked, Location.new(Position.new(2, 10), Position.new(2, 18)))
+	
+			local pr = tryParse(src, opts)
+			assert(pr.errors:size() == 0)
+	
+			assert(#assert(pr.root).body == 1)
+	
+			local root = pr.root.body[1]
+	
+			local glob = root:as(AstStatDeclareGlobal)
+			assert(glob)
+	
+			local tbl = glob.type:as(AstTypeTable)
+			assert(tbl)
+	
+			assert(#tbl.props == 1)
+			local prop = tbl.props[1]
+	
+			local func = prop.type:as(AstTypeFunction)
+			assert(func)
+	
+			local attributes = func.attributes
+	
+			assert(#attributes == 1)
+			checkAttribute(attributes[1], AstAttr.Type.Checked, Location.new(Position.new(2, 10), Position.new(2, 18)))
+		end)
 	end,
 	dont_parse_attributes_on_non_function_type_declarations = function()
-		-- TODO should set FFlag::LuauAttributeSyntax to true
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local opts = ParseOptions.new()
+			opts.allowDeclarationSyntax = true
+	
+			local pr1 = tryParse([[
 
-		local opts = ParseOptions.new()
-		opts.allowDeclarationSyntax = true
-
-		local pr1 = tryParse([[
 @checked declare foo: number
-		]], opts)
+			]], opts)
+	
+			checkFirstErrorForAttributes(
+				pr1.errors,
+				1,
+				Location.new(Position.new(1, 17), Position.new(1, 20)),
+				"Expected a function type declaration after attribute, but got 'foo' intead"
+			)
+	
+			local pr2 = tryParse([[
 
-		checkFirstErrorForAttributes(
-			pr1.errors,
-			1,
-			Location.new(Position.new(1, 17), Position.new(1, 20)),
-			"Expected a function type declaration after attribute, but got 'foo' intead"
-		)
-
-		local pr2 = tryParse([[
 @checked declare class Foo
     prop: number
     function method(self, foo: number): string
 end]], opts)
+	
+			checkFirstErrorForAttributes(
+				pr2.errors,
+				1,
+				Location.new(Position.new(1, 17), Position.new(1, 22)),
+				"Expected a function type declaration after attribute, but got 'class' intead"
+			)
+	
+			local pr3 = tryParse([[
 
-		checkFirstErrorForAttributes(
-			pr2.errors,
-			1,
-			Location.new(Position.new(1, 17), Position.new(1, 22)),
-			"Expected a function type declaration after attribute, but got 'class' intead"
-		)
-
-		local pr3 = tryParse([[
 declare bit32: {
     band: @checked number
 }]], opts)
 
-		checkFirstErrorForAttributes(
-			pr3.errors,
-			1,
-			Location.new(Position.new(2, 19), Position.new(2, 25)),
-			"Expected '(' when parsing function parameters, got 'number'"
-		)
+			checkFirstErrorForAttributes(
+				pr3.errors,
+				1,
+				Location.new(Position.new(2, 19), Position.new(2, 25)),
+				"Expected '(' when parsing function parameters, got 'number'"
+			)
+		end)
 	end,
 	attributes_cannot_be_duplicated = function()
-		-- TODO should set FFlag::LuauAttributeSyntax to true
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local result = tryParse([[
 
-		local result = tryParse([[
 @checked
     @checked
 function hello(x, y)
     return x + y
 end]])
-
-		checkFirstErrorForAttributes(
-			result.errors,
-			1,
-			Location.new(Position.new(2, 4), Position.new(2, 12)),
-			"Cannot duplicate attribute '@checked'"
-		)
+				
+			checkFirstErrorForAttributes(
+				result.errors,
+				1,
+				Location.new(Position.new(2, 4), Position.new(2, 12)),
+				"Cannot duplicate attribute '@checked'"
+			)
+		end)
 	end,
 	unsupported_attributes_are_not_allowed = function()
-		-- TODO should set FFlag::LuauAttributeSyntax to true
+		ScopedVariable({LuauAttributeSyntax = true} :: FV, function()
+			local result = tryParse([[
 
-		local result = tryParse([[
 @checked
     @cool_attribute
 function hello(x, y)
     return x + y
 end]])
-
-		checkFirstErrorForAttributes(
-			result.errors,
-			1,
-			Location.new(Position.new(2, 4), Position.new(2, 19)),
-			"Invalid attribute '@cool_attribute'"
-		)
+			checkFirstErrorForAttributes(
+				result.errors,
+				1,
+				Location.new(Position.new(2, 4), Position.new(2, 19)),
+				"Invalid attribute '@cool_attribute'"
+			)
+		end)
 	end,
 	can_parse_leading_bar_unions_successfully = function()
-		-- TODO should set FFlag::LuauLeadingBarAndAmpersand2 to true
-
-		parse(`type A = | "Hello" | "World"`)
+		ScopedVariable({LuauLeadingBarAndAmpersand2 = true} :: FV, function()
+			parse(`type A = | "Hello" | "World"`)
+		end)
 	end,
 	can_parse_leading_ampersand_intersections_successfully = function()
-		-- TODO should set FFlag::LuauLeadingBarAndAmpersand2 to true
-
-		parse("type A = & { string } & { number }")
+		ScopedVariable({LuauLeadingBarAndAmpersand2 = true} :: FV, function()
+			parse("type A = & { string } & { number }")
+		end)
 	end,
 	mixed_leading_intersection_and_union_not_allowed = function()
-		-- TODO should set FFlag::LuauLeadingBarAndAmpersand2 to true
-
-		matchParseError("type A = & number | string | boolean", "Mixing union and intersection types is not allowed; consider wrapping in parentheses.")
-		matchParseError("type A = | number & string & boolean", "Mixing union and intersection types is not allowed; consider wrapping in parentheses.")
+		ScopedVariable({LuauLeadingBarAndAmpersand2 = true} :: FV, function()
+			matchParseError("type A = & number | string | boolean", "Mixing union and intersection types is not allowed; consider wrapping in parentheses.")
+			matchParseError("type A = | number & string & boolean", "Mixing union and intersection types is not allowed; consider wrapping in parentheses.")
+		end)
 	end
 }

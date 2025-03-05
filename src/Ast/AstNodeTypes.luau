@@ -241,13 +241,13 @@ export type AstExprVarargs = AstExpr & {
 export type AstGenericType = {
 	name: AstName,
 	location: Location,
-	defaultValue: AstType
+	defaultValue: AstType?
 }
 
 export type AstGenericTypePack = {
 	name: AstName,
 	location: Location,
-	defaultValue: AstType
+	defaultValue: AstType?
 }
 
 export type AstLocal = {

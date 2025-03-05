@@ -1,13 +1,17 @@
+local AstName = require("./AstName")
 local AstNameTable = require("./AstNameTable")
 local FastVariables = require("@Shared/FastVariables")
 local Lexeme = require("./Lexeme")
 local Location = require("@Shared/Location")
+local Pair = require("@Polyfill/Pair")
 local Position = require("@Shared/Position")
 local NumberConversions = require("@Polyfill/NumberConversions")
 
+type AstName = AstName.AstName
 type AstNameTable = AstNameTable.AstNameTable
 type Lexeme = Lexeme.Lexeme
 type Location = Location.Location
+type Pair<T1, T2> = Pair.Pair<T1, T2>
 type Position = Position.Position
 local unsigned = NumberConversions.unsigned
 
@@ -174,13 +178,13 @@ function Lexer.new(buffer: string, bufferSize: number, names: AstNameTable): Lex
 	return setmetatable({
 		buffer = buffer,
 		bufferSize = bufferSize,
-		offset = 1,
-		line = 1,
-		lineOffset = 1,
-		lexeme = Lexeme.new(Location.new(Position.new(1, 1), 0), Lexeme.Type.Eof),
+		offset = 0,
+		line = 0,
+		lineOffset = 0,
+		lexeme = Lexeme.new(Location.new(Position.new(0, 0), 0), Lexeme.Type.Eof),
 		names = names,
 		skipComments = false,
-		readNames = false,
+		readNames = true,
 		braceStack = {},
 		prevLocation = Location.new()
 	}, metatable)
@@ -275,21 +279,21 @@ end
 function prototype.peekch(self: Lexer, lookahead: number?): string
 	lookahead = lookahead or 0; assert(lookahead) -- Eli NEW_SOLVER
 	local offset = self.offset + lookahead
-	return if offset - 1 < self.bufferSize then string.sub(self.buffer, offset, offset) else CHAR_ZERO
+	return if offset < self.bufferSize then string.sub(self.buffer, offset + 1, offset + 1) else CHAR_ZERO
 end
 
 function prototype.position(self: Lexer): Position
-	return Position.new(self.line, self.offset - self.lineOffset + 1)
+	return Position.new(self.line, self.offset - self.lineOffset)
 end
 
 function prototype.consume(self: Lexer): ()
 	-- consume() assumes current character is known to not be a newline; use consumeAny if this is not guaranteed
-	assert(not isNewline(string.sub(self.buffer, self.offset, self.offset)))
+	assert(not isNewline(string.sub(self.buffer, self.offset + 1, self.offset + 1)))
 	self.offset += 1
 end
 
 function prototype.consumeAny(self: Lexer): ()
-	if isNewline(string.sub(self.buffer, self.offset, self.offset)) then
+	if isNewline(string.sub(self.buffer, self.offset + 1, self.offset + 1)) then
 		self.line += 1
 		self.lineOffset = self.offset + 1
 	end
@@ -318,7 +322,7 @@ function prototype.readCommentBody(self: Lexer): Lexeme
 		self:consume()
 	end
 
-	return Lexeme.new(Location.new(start, self:position()), Lexeme.Type.Comment, string.sub(self.buffer, startOffset, self.offset - 1), self.offset - startOffset)
+	return Lexeme.new(Location.new(start, self:position()), Lexeme.Type.Comment, string.sub(self.buffer, startOffset + 1, self.offset - 1 + 1), self.offset - startOffset)
 end
 
 -- Given a sequence [===[ or ]===], returns:
@@ -358,7 +362,7 @@ function prototype.readLongString(self: Lexer, start: Position, sep: number, ok:
 				local endOffset = self.offset - sep - 2
 				assert(endOffset >= startOffset)
 
-				return Lexeme.new(Location.new(start, self:position()), ok, string.sub(self.buffer, startOffset, endOffset - 1), endOffset - startOffset)
+				return Lexeme.new(Location.new(start, self:position()), ok, string.sub(self.buffer, startOffset + 1, endOffset - 1 + 1), endOffset - startOffset)
 			end
 		else
 			self:consumeAny()
@@ -408,7 +412,7 @@ function prototype.readQuotedString(self: Lexer): Lexeme
 
 	self:consume()
 
-	return Lexeme.new(Location.new(start, self:position()), Lexeme.Type.QuotedString, string.sub(self.buffer, startOffset, self.offset - 2), self.offset - startOffset - 1)
+	return Lexeme.new(Location.new(start, self:position()), Lexeme.Type.QuotedString, string.sub(self.buffer, startOffset + 1, self.offset - 2 + 1), self.offset - startOffset - 1)
 end
 
 function prototype.readInterpolatedStringBegin(self: Lexer): Lexeme
@@ -440,14 +444,14 @@ function prototype.readInterpolatedStringSection(self: Lexer, start: Position, f
 
 			if self:peekch(1) == "{" then
 				local brokenDoubleBrace =
-					Lexeme.new(Location.new(start, self:position()), Lexeme.Type.BrokenInterpDoubleBrace, string.sub(self.buffer, startOffset, self.offset - 1), self.offset - startOffset)
+					Lexeme.new(Location.new(start, self:position()), Lexeme.Type.BrokenInterpDoubleBrace, string.sub(self.buffer, startOffset + 1, self.offset - 1 + 1), self.offset + 1 - startOffset + 1)
 				self:consume()
 				self:consume()
 				return brokenDoubleBrace
 			end
 
 			self:consume()
-			return Lexeme.new(Location.new(start, self:position()), formatType, string.sub(self.buffer, startOffset, self.offset - 2), self.offset - startOffset - 1)
+			return Lexeme.new(Location.new(start, self:position()), formatType, string.sub(self.buffer, startOffset + 1, self.offset - 2 + 1), self.offset + 1 - startOffset - 1 + 1)
 		else
 			self:consume()
 		end
@@ -455,7 +459,7 @@ function prototype.readInterpolatedStringSection(self: Lexer, start: Position, f
 
 	self:consume()
 
-	return Lexeme.new(Location.new(start, self:position()), endType, string.sub(self.buffer, startOffset, self.offset - 2), self.offset - startOffset - 1)
+	return Lexeme.new(Location.new(start, self:position()), endType, string.sub(self.buffer, startOffset + 1, self.offset - 2 + 1), self.offset + 1 - startOffset - 1 + 1)
 end
 
 function prototype.readNumber(self: Lexer, start: Position, startOffset: number): Lexeme
@@ -480,29 +484,21 @@ function prototype.readNumber(self: Lexer, start: Position, startOffset: number)
 		self:consume()
 	end
 
-	return Lexeme.new(Location.new(start, self:position()), Lexeme.Type.Number, string.sub(self.buffer, startOffset, self.offset - 1), self.offset - startOffset)
+	return Lexeme.new(Location.new(start, self:position()), Lexeme.Type.Number, string.sub(self.buffer, startOffset + 1, self.offset - 1 + 1), self.offset + 1 - startOffset + 1)
 end
 
--- Eli: deviation
-function prototype.readName(self: Lexer): Lexeme
+function prototype.readName(self: Lexer): Pair<AstName, number>
 	assert(isAlpha(self:peekch()) or self:peekch() == "_" or self:peekch() == "@")
 
-	local startPosition = self:position()
 	local startOffset = self.offset
 
 	repeat
 		self:consume()
 	until not (isAlpha(self:peekch()) or isDigit(self:peekch()) or self:peekch() == "_")
 
-	local name = string.sub(self.buffer, startOffset, self.offset - 1)
-	local finalLocation = Location.new(startPosition, self.offset - startOffset)
-	if self:isReserved(name) then
-		local enumKey = "Reserved" .. string.upper(string.sub(name, 1, 1)) .. string.sub(name, 2)
-		local enumValue = Lexeme.Type[enumKey] :: number
-		return Lexeme.new(finalLocation, enumValue)
-	end
-
-	return Lexeme.new(finalLocation, Lexeme.Type.Name, name)
+	return
+		if self.readNames then self.names:getOrAddWithType(self.buffer:sub(startOffset + 1, self.offset - 1 + 1), self.offset - startOffset)
+		else self.names:getWithType(self.buffer:sub(startOffset, startOffset), self.offset - startOffset)
 end
 
 function prototype.readNext(self: Lexer): Lexeme
@@ -510,7 +506,7 @@ function prototype.readNext(self: Lexer): Lexeme
 
 	local case = self:peekch()
 	if case == CHAR_ZERO then
-		return Lexeme.new(Location.new(start, 0), Lexeme.Type.Eof)
+		return Lexeme.new(Location.new(Position.new(start.line, start.column), 0), Lexeme.Type.Eof)
 	elseif case == "-" then
 		if self:peekch(1) == ">" then
 			self:consume()
@@ -700,15 +696,17 @@ function prototype.readNext(self: Lexer): Lexeme
 		self:consume()
 
 		return Lexeme.new(Location.new(start, 1), ch)
-	elseif case == "@" and FastVariables.LuauAttributeSyntax then
-		-- Eli: deviation
-		return self:readName()
+	elseif case == "@" then
+		if FastVariables.LuauAttributeSyntax then
+			local attribute = self:readName()
+			return Lexeme.new(Location.new(start, self:position()), Lexeme.Type.Attribute, attribute.first.value)
+		end
 	else
 		if isDigit(self:peekch()) then
 			return self:readNumber(start, self.offset)
 		elseif isAlpha(self:peekch()) or self:peekch() == "_" then
-			-- Eli: deviation
-			return self:readName()
+			local name = self:readName()
+			return Lexeme.new(Location.new(start, self:position()), name.second, name.first.value)
 		elseif bit32.btest(string.byte(self:peekch()), 0x80) then
 			return self:readUtf8Error()
 		else
@@ -718,6 +716,7 @@ function prototype.readNext(self: Lexer): Lexeme
 			return Lexeme.new(Location.new(start, 1), ch)
 		end
 	end
+	error("Unreachable")
 end
 
 function prototype.readUtf8Error(self: Lexer): Lexeme
@@ -745,14 +744,13 @@ function prototype.readUtf8Error(self: Lexer): Lexeme
 
 	self:consume()
 
-	local chByte2 = string.byte(self:peekch())
-	for i = 1, size-1 do
-		if bit32.band(chByte2, 0b11000000) ~= 0b10000000 then
+	for i = 1, size - 1 do
+		if bit32.band(self:peekch():byte(), 0b11000000) ~= 0b10000000 then
 			return Lexeme.new(Location.new(start, self:position()), Lexeme.Type.BrokenUnicode)
 		end
 
 		codepoint = bit32.lshift(codepoint, 6)
-		codepoint = bit32.bor(codepoint, chByte2)
+		codepoint = bit32.bor(codepoint, bit32.band(self:peekch():byte(), 0b00111111))
 		self:consume()
 	end
 
@@ -769,20 +767,20 @@ local function toUtf8(data: {string}, offset: number, code: number): number
 	elseif code < 0x800 then
 		-- U+0080..U+07FF
 		data[offset] = string.char(bit32.bor(0xC0, bit32.rshift(code, 6)))
-		data[offset+1] = string.char(bit32.bor(0x80, bit32.band(code, 0x3F)))
+		data[offset + 1] = string.char(bit32.bor(0x80, bit32.band(code, 0x3F)))
 		return 2
 	elseif code < 0x10000 then
 		-- U+0800..U+FFFF
 		data[offset] = string.char(bit32.bor(0xE0, bit32.rshift(code, 12)))
-		data[offset+1] = string.char(bit32.bor(0x80, bit32.band(bit32.rshift(code, 6), 0x3F)))
-		data[offset+2] = string.char(bit32.bor(0x80, bit32.band(code, 0x3F)))
+		data[offset + 1] = string.char(bit32.bor(0x80, bit32.band(bit32.rshift(code, 6), 0x3F)))
+		data[offset + 2] = string.char(bit32.bor(0x80, bit32.band(code, 0x3F)))
 		return 3
 	elseif code < 0x110000 then
 		-- U+10000..U+10FFFF
 		data[offset] = string.char(bit32.bor(0xF0, bit32.rshift(code, 18)))
-		data[offset+1] = string.char(bit32.bor(0x80, bit32.band(bit32.rshift(code, 12), 0x3F)))
-		data[offset+2] = string.char(bit32.bor(0x80, bit32.band(bit32.rshift(code, 6), 0x3F)))
-		data[offset+3] = string.char(bit32.bor(0x80, bit32.band(code, 0x3F)))
+		data[offset + 1] = string.char(bit32.bor(0x80, bit32.band(bit32.rshift(code, 12), 0x3F)))
+		data[offset + 2] = string.char(bit32.bor(0x80, bit32.band(bit32.rshift(code, 6), 0x3F)))
+		data[offset + 3] = string.char(bit32.bor(0x80, bit32.band(code, 0x3F)))
 		return 4
 	else
 		return 0
@@ -819,7 +817,7 @@ function Lexer.fixupQuotedString(str: string): {
 			continue
 		end
 
-		if i + 1 > sizeP1 then
+		if i + 1 == sizeP1 then
 			return {success = false}
 		end
 
@@ -921,7 +919,7 @@ function Lexer.fixupQuotedString(str: string): {
 						break
 					end
 
-					code = 10 * code + data[i]:byte() - ("0"):byte()
+					code = 10 * code + (data[i]:byte() - ("0"):byte())
 					i += 1
 				end
 
@@ -969,13 +967,12 @@ function Lexer.fixupMultilineString(data: string): string
 		return ""
 	end
 
-	
-
 	local source = data:split("")
 	local result = {}
 
 	local function add(replaceWithNewline: boolean?): ()
 		if replaceWithNewline then
+			table.remove(source, 1)
 			table.remove(source, 1)
 			table.insert(result, "\n")
 		else
@@ -985,10 +982,10 @@ function Lexer.fixupMultilineString(data: string): string
 
 	-- skip leading newline
 	if source[1] == "\r" and source[2] == "\n" then
-		add()
-		add()
+		table.remove(source, 1)
+		table.remove(source, 1)
 	elseif source[1] == "\n" then
-		add()
+		table.remove(source, 1)
 	end
 
 	-- parse the rest of the string, converting newlines as we go

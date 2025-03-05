@@ -268,7 +268,7 @@ local function getFunctionType(
 	return typeInfo
 end
 
-local function isMatchingGlobal(globals: {[AstName]: number}, node: AstExpr, name: string): boolean
+local function isMatchingGlobal(globals: {[string]: number}, node: AstExpr, name: string): boolean
 	assert(FastVariables.LuauCompileTempTypeInfo)
 
 	local expr = node:as(AstExprGlobal)
@@ -290,7 +290,7 @@ type TypeMapVisitor = AstVisitor & {
 	userdataTypes: {[AstName]: number},
 	builtinTypes: BuiltinTypes,
 	builtinCalls: {[AstExprCall]: number},
-	globals: {[AstName]: number},
+	globals: {[string]: number},
 	bytecode: BytecodeBuilder,
 
 	typeAliases: {[AstName]: AstStatTypeAlias},
@@ -315,7 +315,7 @@ function TypeMapVisitor.new(
 	userdataTypes: {[AstName]: number},
 	builtinTypes: BuiltinTypes,
 	builtinCalls: {[AstExprCall]: number},
-	globals: {[AstName]: number},
+	globals: {[string]: number},
 	bytecode: BytecodeBuilder
 ): TypeMapVisitor
 	local self = AstVisitor.new() :: TypeMapVisitor
@@ -329,6 +329,7 @@ function TypeMapVisitor.new(
 	self.globals = globals
 	self.bytecode = bytecode
 	self.typeAliases = {}
+	self.typeAliasStack = Vector.new()
 	self.resolvedLocals = {}
 	self.resolvedExprs = {}
 	setmetatable(self, metatable)
@@ -893,7 +894,7 @@ function Types.buildTypeMap(
 	userdataTypes: {[AstName]: number},
 	builtinTypes: BuiltinTypes,
 	builtinCalls: {[AstExprCall]: number},
-	globals: {[AstName]: number},
+	globals: {[string]: number},
 	bytecode: BytecodeBuilder
 ): ()
 	local visitor = TypeMapVisitor.new(functionTypes, localTypes, exprTypes, vectorType, userdataTypes, builtinTypes, builtinCalls, globals, bytecode)

@@ -483,7 +483,7 @@ function prototypeVisitor.visitAstStatLocal(self: ConstantVisitor, node: AstStat
 		local multRet = last and (last:is(AstExprCall) or last:is(AstExprVarargs))
 		
 		if not multRet then
-			for i = #node.values, #node.vars do
+			for i = #node.values + 1, #node.vars do
 				local constantNil = Constant.new(Constant.Type.Type_Nil)
 				self:recordValue(node.vars[i], constantNil)
 			end
@@ -492,7 +492,7 @@ function prototypeVisitor.visitAstStatLocal(self: ConstantVisitor, node: AstStat
 		-- we can have more values than variables; in this case we still need to analyze them to make sure we do constant propagation inside
         -- them
 
-		for i = #node.vars, #node.values do
+		for i = #node.vars + 1, #node.values do
 			self:analyze(node.values[1])
 		end
 	end

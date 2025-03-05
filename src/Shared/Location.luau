@@ -51,8 +51,8 @@ function Location.new(begin: nil | Position | Location, finish: nil | Position |
 	if begin == nil and finish == nil then
 		-- nil, nil
 		object = {
-			begin = Position.new(1, 1),
-			finish = Position.new(1, 1)
+			begin = Position.new(0, 0),
+			finish = Position.new(0, 0)
 		}
 	elseif beginPosition and type(finish) == "number" then
 		-- Position, number

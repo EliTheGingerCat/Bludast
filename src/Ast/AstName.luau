@@ -10,7 +10,7 @@
 local AstName = {}
 local metatable = {}
 export type AstName = typeof(setmetatable({} :: {
-	value: string
+	value: string?
 }, metatable))
 
 --[=[
@@ -21,8 +21,12 @@ export type AstName = typeof(setmetatable({} :: {
 ]=]
 function AstName.new(value: string?): AstName
 	return setmetatable({
-		value = value or ""
+		value = value
 	}, metatable)
+end
+
+function AstName.is(object: AstName): boolean
+	return getmetatable(object) == metatable
 end
 
 --[=[
@@ -44,7 +48,13 @@ end
 	@tag metamethod
 ]=]
 function metatable.__lt(self: AstName, rhs: AstName): boolean
-	return self.value < rhs.value
+	if self.value and rhs.value then
+		return self.value < rhs.value
+	elseif self.value == nil and rhs.value == nil then
+		return false
+	else
+		return self.value == nil
+	end
 end
 
 return AstName

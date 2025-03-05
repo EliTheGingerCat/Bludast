@@ -558,7 +558,7 @@ export type Compiler = typeof(setmetatable({} :: {
 
 	functions: {[AstExprFunction]: Function},
 	locals: {[AstLocal]: Local},
-	globals: {[AstName]: number},
+	globals: {[string]: number},
 	variables: {[AstLocal]: Variable},
 	constants: {[AstExpr]: Constant},
 	locstants: {[AstLocal]: Constant},
@@ -656,8 +656,8 @@ end
 ]=]
 function prototype.getUpval(self: Compiler, astLocal: AstLocal): number
 	for uid = 1, self.upvals:size() do
-		if self.upvals[uid] == astLocal then
-			return uid
+		if self.upvals:get(uid) == astLocal then
+			return uid - 1
 		end
 	end
 
@@ -674,6 +674,9 @@ function prototype.getUpval(self: Compiler, astLocal: AstLocal): number
 	local v = self.variables[astLocal]
 
 	if v and v.written then
+		if not self.locals[astLocal] then
+			self.locals[astLocal] = Local.new()
+		end
 		self.locals[astLocal].captured = true
 	end
 
@@ -817,7 +820,7 @@ function prototype.compileFunction(self: Compiler, func: AstExprFunction, protof
 
 	self.bytecode:setDebugFunctionLineDefined(func.location.begin.line + 1)
 
-	if self.options.debugLevel >= 1 and func.debugname.value then
+	if self.options.debugLevel >= 1 and func.debugname.value ~= nil then
 		self.bytecode:setDebugFunctionName(sref(func.debugname))
 	end
 	
@@ -872,6 +875,10 @@ function prototype.compileFunction(self: Compiler, func: AstExprFunction, protof
 	self.bytecode:endFunction(uint8_t(self.stackSize), uint8_t(self.upvals:size()), protoflags)
 
 	local f = self.functions[func]
+	if f == nil then
+		f = Function.new()
+		self.functions[func] = f
+	end
 	f.id = fid
 	local upvals: Vector<AstLocal> = Vector.new()
 	for _, upval in self.upvals:data() do
@@ -1102,7 +1109,7 @@ function prototype.compileExprFastcallN(
 	assert(not expr.self)
 	assert(#expr.args >= 1)
 	assert(#expr.args <= 2 or (bfid == LuauBuiltinFunction.LBF_BIT32_EXTRACTK and #expr.args == 3))
-	assert(if bfid == LuauBuiltinFunction.LBF_BIT32_EXTRACTK then bfK >= 0 else bfK <= 0)
+	assert(if bfid == LuauBuiltinFunction.LBF_BIT32_EXTRACTK then bfK >= 0 else bfK < 0)
 
 	local opc =
 		if #expr.args == 1 then LuauOpcode.LOP_FASTCALL1
@@ -1128,7 +1135,7 @@ function prototype.compileExprFastcallN(
 
 	local fastcallLabel = self.bytecode:emitLabel()
 
-	self.bytecode:emitABC(opc, uint8_t(bfK), uint8_t(args[1]), 0)
+	self.bytecode:emitABC(opc, uint8_t(bfid), uint8_t(args[1]), 0)
 	if opc ~= LuauOpcode.LOP_FASTCALL1 then
 		self.bytecode:emitAux(if bfK >= 0 then bfK else args[2])
 	end
@@ -1462,7 +1469,6 @@ function prototype.compileExprCall(self: Compiler, expr: AstExprCall, target: nu
 
 	-- Optimization: if target points to the top of the stack, we can start the call at oldTop - 1 and won't need MOVE at the end
 	local regs = if targetTop then self:allocReg(expr, regCount - targetCount) - targetCount else self:allocReg(expr, regCount)
-
 	local selfreg = 0
 
 	local bfid = -1
@@ -1482,7 +1488,7 @@ function prototype.compileExprCall(self: Compiler, expr: AstExprCall, target: nu
 			self.bytecode:addDebugRemark(
 				("builtin %s.%s/%d%s"):format(
 					builtin.object.value,
-					builtin.method.value,
+					builtin.method.value or "",
 					int(#expr.args),
 					if lastMult then "+" else ""
 				)
@@ -1502,8 +1508,9 @@ function prototype.compileExprCall(self: Compiler, expr: AstExprCall, target: nu
 		-- Optimization: compile select(_, ...) as FASTCALL1; the builtin will read variadic arguments directly
 		-- note: for now we restrict this to single-return expressions since our runtime code doesn't deal with general cases
 		if multRet == false and targetCount == 1 then
+			self:compileExprSelectVararg(expr, target, targetCount, targetTop, multRet, regs)
 			rs:destroy()
-			return self:compileExprSelectVararg(expr, target, targetCount, targetTop, multRet, regs)
+			return
 		else
 			bfid = -1
 		end
@@ -1524,23 +1531,26 @@ function prototype.compileExprCall(self: Compiler, expr: AstExprCall, target: nu
 				CompileError.raise(expr.location, "Exceeded constant limit; simplify the code to compile")
 			end
 
+			self:compileExprFastcallN(expr, target, targetCount, targetTop, multRet, regs, LuauBuiltinFunction.LBF_BIT32_EXTRACTK, cid)
 			rs:destroy()
-			return self:compileExprFastcallN(expr, target, targetCount, targetTop, multRet, regs, LuauBuiltinFunction.LBF_BIT32_EXTRACTK, cid)
+			return
 		end
 	end
 
 	-- Optimization: for 1/2 argument fast calls use specialized opcodes
 	if bfid >= 0 and #expr.args >= 1 and #expr.args <= 2 then
 		if not self:isExprMultRet(expr.args[#expr.args]) then
+			self:compileExprFastcallN(expr, target, targetCount, targetTop, multRet, regs, bfid)
 			rs:destroy()
-			return self:compileExprFastcallN(expr, target, targetCount, targetTop, multRet, regs, bfid)
+			return
 		elseif self.options.optimizationLevel >= 2 then
 			-- when a builtin is none-safe with matching arity, even if the last expression returns 0 or >1 arguments,
 			-- we can rely on the behavior of the function being the same (none-safe means nil and none are interchangeable)
 			local info = getBuiltinInfo(bfid)
 			if int(#expr.args) == info.params and bit32.band(info.flags, Builtins.BuiltinInfo.Flags.Flag_NoneSafe) ~= 0 then
+				self:compileExprFastcallN(expr, target, targetCount, targetTop, multRet, regs, bfid)
 				rs:destroy()
-				return self:compileExprFastcallN(expr, target, targetCount, targetTop, multRet, regs, bfid)
+				return
 			end
 		end
 	end
@@ -1635,7 +1645,7 @@ end
 ]=]
 function prototype.shouldShareClosure(self: Compiler, func: AstExprFunction): boolean
 	local f = self.functions[func]
-	if func == nil then
+	if f == nil then
 		return false
 	end
 	
@@ -1694,7 +1704,7 @@ function prototype.compileExprFunction(self: Compiler, expr: AstExprFunction, ta
 	self.captures:reserve(f.upvals:size())
 
 	for _, uv in f.upvals:data() do
-		assert(uv.functionDepth > expr.functionDepth)
+		assert(uv.functionDepth < expr.functionDepth)
 
 		local reg = self:getLocalReg(uv :: AstLocal)
 		local uc = self.locstants[uv :: AstLocal]
@@ -1720,6 +1730,34 @@ function prototype.compileExprFunction(self: Compiler, expr: AstExprFunction, ta
 			self.captures:push_back(Capture.new(LuauCaptureType.LCT_UPVAL, uid))
 		end
 	end
+
+	-- Optimization: when closure has no upvalues, or upvalues are safe to share, instead of allocating it every time we can share closure
+	-- objects (this breaks assumptions about function identity which can lead to setfenv not working as expected, so we disable this when it
+	-- is used)
+	local shared = -1
+
+	if self.options.optimizationLevel >= 1 and self:shouldShareClosure(expr) and not self.setfenvUsed then
+		local cid = self.bytecode:addConstantClosure(f.id)
+
+		if cid >= 0 and cid < 32768 then
+			shared = int16_t(cid)
+		end
+	end
+	
+	if shared < 0 then
+		self.bytecode:addDebugRemark(("allocation: closure with %d upvalues"):format(self.captures:size()))
+	end
+
+	if shared >= 0 then
+		self.bytecode:emitAD(LuauOpcode.LOP_DUPCLOSURE, target, shared)
+	else
+		self.bytecode:emitAD(LuauOpcode.LOP_NEWCLOSURE, target, pid)
+	end
+
+	for _, c in self.captures:data() do
+		self.bytecode:emitABC(LuauOpcode.LOP_CAPTURE, uint8_t(c.type), c.data, 0)
+	end
+
 	rs:destroy()
 end
 
@@ -1913,7 +1951,6 @@ function prototype.compileCompareJump(self: Compiler, expr: AstExprBinary, not_:
 
 		local jumpLabel = self.bytecode:emitLabel()
 
-
 		if expr.op == AstExprBinary.Op.CompareGt or expr.op == AstExprBinary.Op.CompareGe then
 			self.bytecode:emitAD(opc, rr, 0)
 			self.bytecode:emitAux(rl)
@@ -2055,11 +2092,11 @@ function prototype.compileConditionValue(self: Compiler, node: AstExpr, target: 
 				-- if the comparison is false, we'll fallthrough and target will still be 1 but target has unspecified value for falsy results
 				-- when we only care about falsy values instead of truthy values, the process is the same but with flipped conditionals
 				self.bytecode:emitABC(LuauOpcode.LOP_LOADB, target, if onlyTruth then 1 else 0, 0)
-
-				local jumpLabel = self:compileCompareJump(expr, not onlyTruth)
-
-				skipJump:push_back(jumpLabel)
 			end
+
+			local jumpLabel = self:compileCompareJump(expr, not onlyTruth)
+
+			skipJump:push_back(jumpLabel)
 			return
 		end
 	end
@@ -2092,6 +2129,8 @@ function prototype.compileConditionValue(self: Compiler, node: AstExpr, target: 
 
 	skipJump:push_back(self.bytecode:emitLabel())
 	self.bytecode:emitAD(if onlyTruth then LuauOpcode.LOP_JUMPIF else LuauOpcode.LOP_JUMPIFNOT, reg, 0)
+
+	rs:destroy()
 end
 
 --[=[
@@ -2497,6 +2536,9 @@ end
 function prototype.compileExprTable(self: Compiler, expr: AstExprTable, target: number, targetTemp: boolean): ()
 	-- Optimization: if the table is empty, we can compute it directly into the target
 	if #expr.items == 0 then
+		if not self.tableShapes[expr] then
+			self.tableShapes[expr] = TableShape.TableShapeStruct.new()
+		end
 		local shape = self.tableShapes[expr]
 
 		self.bytecode:addDebugRemark(("allocation: table hash %d"):format(shape.hashSize))
@@ -2559,7 +2601,7 @@ function prototype.compileExprTable(self: Compiler, expr: AstExprTable, target: 
 			end
 
 			assert(shape.length < BytecodeBuilder.TableShape.kMaxLength)
-			shape.keys[shape.length] = int16_t(cid)
+			shape.keys[shape.length + 1] = int16_t(cid)
 			shape.length += 1
 		end
 
@@ -2657,6 +2699,8 @@ function prototype.compileExprTable(self: Compiler, expr: AstExprTable, target: 
 	if target ~= reg then
 		self.bytecode:emitABC(LuauOpcode.LOP_MOVE, target, reg, 0)
 	end
+
+	rs:destroy()
 end
 
 --[=[
@@ -2781,6 +2825,8 @@ function prototype.compileExprIndexExpr(self: Compiler, expr: AstExprIndexExpr, 
 
 		self.bytecode:emitABC(LuauOpcode.LOP_GETTABLE, target, rt, ri)
 	end
+
+	rs:destroy()
 end
 
 --[=[
@@ -3683,7 +3729,7 @@ function prototype.tryCompileUnrolledFor(self: Compiler, stat: AstStatFor, thres
 	end
 
 	local var = stat.var
-	local costModel = modelCost(stat.body, var, 1, self.builtins)
+	local costModel = modelCost(stat.body, {var}, 1, self.builtins)
 
 	-- we use a dynamic cost threshold that's based on the fixed limit boosted by the cost advantage we gain due to unrolling
 	local varc = {true}
@@ -3727,6 +3773,9 @@ function prototype.compileUnrolledFor(self: Compiler, stat: AstStatFor, tripCoun
 
 	for iv = 0, tripCount - 1 do
 		-- we need to re-fold constants in the loop body with the new value; this reuses computed constant values elsewhere in the tree
+		if not self.locstants[var] then
+			self.locstants[var] = Constant.new()
+		end
 		self.locstants[var].type = Constant.Type.Type_Number
 		self.locstants[var].valueNumber = from + iv * step
 
@@ -4391,10 +4440,10 @@ function prototype.validateContinueUntil(self: Compiler, cont: AstStat, conditio
 		local statLocalFunction = body.body[i]:as(AstStatLocalFunction)
 		if statLocal then
 			for _, astLocal in statLocal.vars do
-				table.insert(visitor.locals, astLocal)
+				visitor.locals[astLocal] = true
 			end
 		elseif statLocalFunction then
-			table.insert(visitor.locals, statLocalFunction.name)
+			visitor.locals[statLocalFunction.name] = true
 		end
 	end
 
@@ -4441,6 +4490,9 @@ function prototype.pushLocal(self: Compiler, astLocal: AstLocal, reg: number, al
 
 	self.localStack:push_back(astLocal)
 
+	if not self.locals[astLocal] then
+		self.locals[astLocal] = Local.new()
+	end
 	local l = self.locals[astLocal]
 
 	assert(not l.allocated)
@@ -4515,6 +4567,8 @@ function prototype.popLocals(self: Compiler, start: number): ()
 		local l = self.locals[self.localStack:get(i)]
 		assert(l)
 		assert(l.allocated)
+
+		l.allocated = false
 
 		if self.options.debugLevel >= 2 then
 			local debugpc = self.bytecode:getDebugPC()
@@ -4839,7 +4893,7 @@ Compiler.compileOrThrow = function(bytecode: BytecodeBuilder, a2: any, a3: any, 
 		end
 	end
 
-	
+
 	for _, expr in functions:data() do
 		local protoflags = 0
 		-- TC says compileFunction does not exist when using method call syntax here. What the Rizz?
@@ -4877,7 +4931,7 @@ end :: (
 	@within Compiler
 	@since 0.1.0
 ]=]
-function Compiler.compile(source: string, options: CompileOptions, parseOptions: ParseOptions, encoder: BytecodeEncoder): string
+function Compiler.compile(source: string, options: CompileOptions, parseOptions: ParseOptions, encoder: BytecodeEncoder?): string
 	local scope = LUAU_TIMETRACE_SCOPE("compile", "Compiler")
 
 	local names = AstNameTable.new()
@@ -4905,6 +4959,10 @@ function Compiler.compile(source: string, options: CompileOptions, parseOptions:
 		end
 		return bcb:getBytecode()
 	else
+		if typeof(e) == "string" then
+			-- This should not happen.
+			error(e)
+		end
 		local error = string.format(":%d: %s", e:getLocation().begin.line + 1, e:what())
 		if scope then
 			scope:destroy()

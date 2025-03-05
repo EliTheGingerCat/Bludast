@@ -3,9 +3,27 @@
 	
 	Class template from [C++ std](https://cplusplus.com/reference/vector/vector/).
 ]=]
+
+local metamethodError = "Little brother, you are supposed to use the `%s` method!"
+
 local Vector = {}
-local prototype = {}
-local metatable = {__index = prototype}
+local prototype = setmetatable({}, {
+	__index = function()
+		error((metamethodError):format("get"), 2)
+	end
+})
+local metatable = {
+	__index = prototype,
+	__len = function()
+		error((metamethodError):format("size"), 2)
+	end,
+	__iter = function()
+		error((metamethodError):format("data"), 2)
+	end,
+	__newindex = function()
+		error((metamethodError):format("set"), 2)
+	end
+}
 
 Vector.prototype = prototype
 
@@ -64,18 +82,9 @@ export type Vector<T> = typeof(setmetatable({} :: {
 ]=]
 function Vector.new<T>(count: number?, value: T?): Vector<T>
 	local self = setmetatable({
-		_data = {},
-		_size = 0
+		_data = table.create(count or 0, value),
+		_size = count or 0
 	}, metatable)
-
-	if count then
-		self:reserve(count)
-		if value then
-			for _ = 1, count do
-				self:push_back(value)
-			end
-		end
-	end
 
 	return self
 end
@@ -205,6 +214,9 @@ end
 	Use this method to index the inner array. The `__index` metamethod could be employed instead, but this would ruin typechecking unless methods are typed statically.
 ]=]
 function prototype.get<T>(self: Vector<T>, index: number): T
+	if not (0 < index and index < self._size + 1) then
+		print(debug.traceback())
+	end
 	assert(0 < index and index < self._size + 1)
 	return self._data[index]
 end
@@ -241,7 +253,7 @@ end
 	:::
 ]=]
 function prototype.data<T>(self: Vector<T>): {T}
-	return self._data
+	return self:copy_range(1, self._size)
 end
 
 --[=[
@@ -283,6 +295,9 @@ prototype.emplace_back = prototype.push_back
 	@since v0.1.0
 ]=]
 function prototype.set<T>(self: Vector<T>, index: number, value: T): ()
+	if not (0 < index and index < self._size + 1) then
+		print(debug.traceback())
+	end
 	assert(0 < index and index < self._size + 1)
 	self._data[index] = value
 end

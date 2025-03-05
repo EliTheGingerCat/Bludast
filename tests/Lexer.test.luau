@@ -13,7 +13,7 @@ return {
 		local lexer = Lexer.new(testInput, #testInput, table)
 		local lexeme = lexer:next()
 		assert(lexeme.type == Lexeme.Type.BrokenString)
-		assert(lexeme.location == Location.new(Position.new(1, 1), Position.new(1, 3)))
+		assert(lexeme.location == Location.new(Position.new(0, 0), Position.new(0, 2)))
 	end,
 
 	broken_comment = function()
@@ -22,7 +22,7 @@ return {
 		local lexer = Lexer.new(testInput, #testInput, table)
 		local lexeme = lexer:next()
 		assert(lexeme.type == Lexeme.Type.BrokenComment)
-		assert(lexeme.location == Location.new(Position.new(1, 1), Position.new(1, 7)))
+		assert(lexeme.location == Location.new(Position.new(0, 0), Position.new(0, 6)))
 	end,
 
 	broken_comment_kept = function()
@@ -49,9 +49,9 @@ return {
 		local endd = lexer:next()
 
 		assert(comment.type == Lexeme.Type.BlockComment)
-		assert(comment.location == Location.new(Position.new(1, 1), Position.new(2, 3)))
+		assert(comment.location == Location.new(Position.new(0, 0), Position.new(1, 2)))
 		assert(endd.type == Lexeme.Type.ReservedEnd)
-		assert(endd.location == Location.new(Position.new(2, 4), Position.new(2, 7)))
+		assert(endd.location == Location.new(Position.new(1, 3), Position.new(1, 6)))
 	end,
 
 	testBrokenEscapeTolerant = function()
@@ -61,7 +61,7 @@ return {
 		local item = lexer:next()
 
 		assert(item.type == Lexeme.Type.QuotedString)
-		assert(item.location == Location.new(Position.new(1, 1), Position.new(1, #testInput + 1)))
+		assert(item.location == Location.new(Position.new(0, 0), Position.new(0, #testInput)))
 	end,
 
 	testBigDelimiters = function()
@@ -71,7 +71,7 @@ return {
 		local item = lexer:next()
 
 		assert(item.type == Lexeme.Type.BlockComment)
-		assert(item.location == Location.new(Position.new(1, 1), Position.new(5, 6)))
+		assert(item.location == Location.new(Position.new(0, 0), Position.new(4, 5)))
 	end,
 
 	lookahead = function()

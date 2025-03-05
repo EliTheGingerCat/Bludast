@@ -13,7 +13,7 @@ type Location = Location.Location
 ]=]
 local AstGenericType = {}
 
-function AstGenericType.new(name: AstName, location: Location, defaultValue: AstType)
+function AstGenericType.new(name: AstName, location: Location, defaultValue: AstType?): AstGenericType
 	return {
 		name = name,
 		location = location,
