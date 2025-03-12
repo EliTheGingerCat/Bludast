@@ -62,8 +62,6 @@ Run `lune list` to see available scripts.
 
 Use `moonwave dev` to view the site.
 
-See: https://github.com/evaera/moonwave/issues/163
-
 **Testing**
 
 Run `lune run test` and ensure there are no errors before making a pull request.
