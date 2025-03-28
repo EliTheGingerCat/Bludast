@@ -9,9 +9,11 @@ local AstExprError = require("@Ast/AstExprError")
 local AstExprFunction = require("@Ast/AstExprFunction")
 local AstExprIfElse = require("@Ast/AstExprIfElse")
 local AstExprIndexName = require("@Ast/AstExprIndexName")
+local AstExprTable = require("@Ast/AstExprTable")
 local AstExprTypeAssertion = require("@Ast/AstExprTypeAssertion")
 local AstName = require("@Ast/AstName")
 local AstNameTable = require("@Ast/AstNameTable")
+local AstQueryDsl = require("./AstQueryDsl")
 local AstStatAssign = require("@Ast/AstStatAssign")
 local AstStatBlock = require("@Ast/AstStatBlock")
 local AstStatCompoundAssign = require("@Ast/AstStatCompoundAssign")
@@ -32,6 +34,7 @@ local AstTypeIntersection = require("@Ast/AstTypeIntersection")
 local AstTypePackGeneric = require("@Ast/AstTypePackGeneric")
 local AstTypeReference = require("@Ast/AstTypeReference")
 local AstTypeTable = require("@Ast/AstTypeTable")
+local AstVisitor = require("@Ast/AstVisitor")
 local FastVariables = require("@Shared/FastVariables")
 local HotComment = require("@Ast/HotComment")
 local Lexeme = require("@Ast/Lexeme")
@@ -48,8 +51,10 @@ local Try = require("@Polyfill/Try")
 local Vector = require("@Polyfill/Vector")
 
 type AstStatBlock = AstStatBlock.AstStatBlock
+type AstVisitor = AstVisitor.AstVisitor
 type FV = typeof(FastVariables)
 type ParseErrors = ParseErrors.ParseErrors
+local query = AstQueryDsl.query
 
 local defaultOptions = ParseOptions.new(false, true)
 
@@ -154,6 +159,26 @@ local function checkFirstErrorForAttributes(errors: Vector.Vector<ParseError.Par
 	assert(errors:size() >= minSize)
 	assert(errors:get(1):getLocation() == location)
 	assert(errors:get(1):getMessage() == message)
+end
+
+local prototype = setmetatable({}, AstVisitor.metatable)
+local metatable = {__index = prototype}
+local CountAstNodes = {}
+type CountAstNodes = AstVisitor & {
+	count: number
+}
+
+function CountAstNodes.new(): CountAstNodes
+	local self = AstVisitor.new() :: CountAstNodes
+	self.count = 0
+	setmetatable(self, metatable)
+	return self
+end
+
+function prototype.visit(self: CountAstNodes): boolean
+	self.count += 1
+
+	return true
 end
 
 return {
@@ -1357,7 +1382,6 @@ return
 
 		local str = ret.list[1]:as(AstExprConstantString)
 		assert(str)
-		print(str.value:gsub("\n", "\\n"):gsub("\r", "\\r"))
 		assert(str.value == "foo\n\r")
 
 		local str = ret.list[2]:as(AstExprConstantString)
@@ -1387,7 +1411,6 @@ return
 
 		local str = ret.list[1]:as(AstExprConstantString)
 		assert(str)
-		print((str.value:gsub("\r", "\\r"):gsub("\n", "\\n")))
 		assert(str.value == "foobar")
 
 		local str = ret.list[2]:as(AstExprConstantString)
@@ -2095,7 +2118,6 @@ a(2, 5)
 			parse("+")
 			error("Expected ParseErrors to be thrown")
 		end):catch(function(e: ParseErrors)
-			print(e:getErrors():size())
 			assert(1 == e:getErrors():size())
 		end)
 	end,
@@ -2175,15 +2197,68 @@ local a : { [string] : number, [number] : string, count: number }
 		end)
 	end,
 	recovery_of_parenthesized_expressions = function()
-		-- TODO
+		local function checkAstEquivalence(codeWithErrors: string, code: string)
+			local result1 = tryParse(codeWithErrors, defaultOptions)
+			assert(result1.root)
+
+			local counterWithErrors = CountAstNodes.new()
+			result1.root:visit(counterWithErrors)
+
+			local result2 = parse(code, defaultOptions)
+			assert(result2)
+
+			local counter = CountAstNodes.new()
+			result2:visit(counter)
+
+			assert(counterWithErrors.count == counter.count)
+		end
+
+		local function checkRecovery(codeWithErrors: string, code: string, expectedErrorCount: number)
+			local success, e: ParseErrors = pcall(parse :: any, codeWithErrors)
+			if success then
+				error("Expected ParseErrors to be thrown")
+			else
+				assert(expectedErrorCount == e:getErrors():size())
+				checkAstEquivalence(codeWithErrors, code)
+			end
+		end
+
+		checkRecovery("function foo(a, b. c) return a + b end", "function foo(a, b) return a + b end", 1)
+		checkRecovery(
+			"function foo(a, b: { a: number, b: number. c:number }) return a + b end",
+			"function foo(a, b: { a: number, b: number }) return a + b end",
+			1
+		)
+
+		checkRecovery("function foo(a, b): (number -> number return a + b end", "function foo(a, b): (number) -> number return a + b end", 1)
+		checkRecovery("function foo(a, b): (number, number -> number return a + b end", "function foo(a, b): (number) -> number return a + b end", 1)
+		checkRecovery("function foo(a, b): (number; number) -> number return a + b end", "function foo(a, b): (number) -> number return a + b end", 1)
+
+		checkRecovery("function foo(a, b): (number, number return a + b end", "function foo(a, b): (number, number) end", 1)
+		checkRecovery("local function foo(a, b): (number, number return a + b end", "local function foo(a, b): (number, number) end", 1)
+
+		-- These tests correctly recovered before the changes and we test that new recovery didn't make them worse
+		-- (by skipping more tokens necessary)
+		checkRecovery("type F = (number, number -> number", "type F = (number, number) -> number", 1)
+		checkRecovery("function foo(a, b: { a: number, b: number) return a + b end", "function foo(a, b: { a: number, b: number }) return a + b end", 1)
+		checkRecovery("function foo(a, b: { [number: number}) return a + b end", "function foo(a, b: { [number]: number}) return a + b end", 1)
+		checkRecovery("local n: (string | number = 2", "local n: (string | number) = 2", 1)
+
+		-- Check that we correctly stop at the end of a line
+		checkRecovery([[
+
+function foo(a, b
+    return a + b
+end
+]], "function foo(a, b) return a + b end", 1)
 	end,
 	incomplete_method_call = function()
 		local source = [[
 
-			function howdy()
-				return game:
-			end
-		]]
+        function howdy()
+            return game:
+        end
+    ]]
 		
 		local result = Parser.parse(source, #source, AstNameTable.new(), ParseOptions.new())
 
@@ -2198,7 +2273,6 @@ local a : { [string] : number, [number] : string, count: number }
 		local ret = body.body[1]:as(AstStatReturn)
 		assert(ret)
 
-		print(howdyFunction.location.finish, body.location.finish)
 		assert(howdyFunction.location.finish > body.location.finish)
 	end,
 	incomplete_method_call_2 = function()
@@ -2215,7 +2289,7 @@ local a : { [string] : number, [number] : string, count: number }
 
 		assert(2 == #assert(result.root).body)
 
-		local howdyFunction = result.root.body[1]:as(AstStatFunction)
+		local howdyFunction = result.root.body[2]:as(AstStatFunction)
 		assert(howdyFunction)
 
 		local body = howdyFunction.func.body
@@ -2261,16 +2335,17 @@ local a : { [string] : number, [number] : string, count: number }
 		local options = ParseOptions.new()
 		options.captureComments = true
 
-		local result = parseEx("\
-        --!strict\
-\
-        local a = 5 -- comment one\
-        local b = 8 -- comment two\
-        --[[\
-            Multi line comment\
-        ]]\
-        local c = 'see'\
-		", options)
+		local result = parseEx([=[
+
+        --!strict
+
+        local a = 5 -- comment one
+        local b = 8 -- comment two
+        --[[
+            Multi line comment
+        ]]
+        local c = 'see'
+    ]=], options)
 
 		assert(result.errors:empty())
 
@@ -2518,14 +2593,9 @@ end
 
 		assert(1 == #assert(result.root).body)
 
-		--[[
-
-		TODO
-
-		AstExprTable* table = Luau::query<AstExprTable>(result.root);
-		REQUIRE(table);
-		CHECK(table->items.size == 1);
-		]]
+		local exprTable = query(AstExprTable, nil, result.root)
+		assert(exprTable)
+		assert(#exprTable.items == 4)
 	end,
 	get_a_nice_error_when_there_is_no_comma_after_last_table_member = function()
 		local result = tryParse([[
@@ -2544,14 +2614,10 @@ end
 
 		assert(3 == #assert(result.root).body)
 
-		--[[
 
-		TODO
-
-		AstExprTable* table = Luau::query<AstExprTable>(result.root);
-		REQUIRE(table);
-		CHECK(table->items.size == 1);
-		]]
+		local exprTable = query(AstExprTable, nil, result.root)
+		assert(exprTable)
+		assert(#exprTable.items == 1)
 	end,
 	missing_default_type_pack_argument_after_variadic_type_parameter = function()
 		local result = tryParse([[
@@ -2898,7 +2964,7 @@ end]])
 			checkFirstErrorForAttributes(
 				pr2.errors,
 				1,
-				Location.new(Position.new(3, 0), Position.new(2, 2)),
+				Location.new(Position.new(3, 0), Position.new(3, 5)),
 				"Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got 'while' intead"
 			)
 

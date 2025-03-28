@@ -760,6 +760,8 @@ function prototype.readUtf8Error(self: Lexer): Lexeme
 end
 
 local function toUtf8(data: {string}, offset: number, code: number): number
+	offset += 1
+
 	-- U+0000..U+007F
 	if code < 0x80 then
 		data[offset] = string.char(code)
@@ -937,6 +939,7 @@ function Lexer.fixupQuotedString(str: string): {
 	end
 
 	assert(write <= size)
+	data = table.move(data, 1, write, 1, {})
 
 	return {
 		success = true,

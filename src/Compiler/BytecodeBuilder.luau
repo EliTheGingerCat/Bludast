@@ -1827,11 +1827,8 @@ end
 ]=]
 function BytecodeBuilder.getError(message: string): string
 	-- 0 acts as a special marker for error bytecode (it's equal to LBC_VERSION_TARGET for valid bytecode blobs)
-	local result = ""
-	result ..= string.char(0)
-	result ..= message
 
-	return result
+	return string.char(0) .. message
 end
 
 --[=[

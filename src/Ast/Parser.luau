@@ -611,9 +611,9 @@ function prototype.parseStat(self: Parser): AstStat
 	elseif case == Lexeme.Type.ReservedRepeat then
 		return self:parseRepeat()
 	elseif case == Lexeme.Type.ReservedFunction then
-		return self:parseFunctionStat({AstAttr.new(nil, AstAttr.Type.Checked)})
+		return self:parseFunctionStat({})
 	elseif case == Lexeme.Type.ReservedLocal then
-		return self:parseLocal({AstAttr.new(nil, AstAttr.Type.Checked)})
+		return self:parseLocal({})
 	elseif case == Lexeme.Type.ReservedReturn then
 		return self:parseReturn()
 	elseif case == Lexeme.Type.ReservedBreak then
@@ -662,7 +662,7 @@ function prototype.parseStat(self: Parser): AstStat
 
 	if self.options.allowDeclarationSyntax then
 		if ident.value == "declare" then
-			return self:parseDeclaration(expr.location, {AstAttr.new(nil, AstAttr.Type.Checked)})
+			return self:parseDeclaration(expr.location, {})
 		end
 	end
 
@@ -1151,15 +1151,12 @@ function prototype.parseAttributeStat(self: Parser): AstStat
 		return self:parseFunctionStat(attributes)
 	elseif typeLex == Lexeme.Type.ReservedLocal then
 		return self:parseLocal(attributes)
-	elseif typeLex == Lexeme.Type.Name then
-		if self.options.allowDeclarationSyntax and self.lexer:current().data ~= "declare" then
-			local expr = self:parsePrimaryExpr(--[[ asStatement= ]] true)
-			return self:parseDeclaration(expr.location, attributes)
-		end
+	elseif typeLex == Lexeme.Type.Name and self.options.allowDeclarationSyntax and self.lexer:current().name == "declare" then
+		local expr = self:parsePrimaryExpr(--[[ asStatement= ]] true)
+		return self:parseDeclaration(expr.location, attributes)
 	else
 		return self:reportStatError(self.lexer:current().location, {}, {}, "Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got %s intead", self.lexer:current():toString())
 	end
-	error("Unreachable")
 end
 
 -- local function Name funcbody |
@@ -1431,7 +1428,7 @@ function prototype.parseDeclaration(self: Parser, start: Location.Location, attr
 			if self.lexer:current().type == Lexeme.Type.ReservedFunction then
 				props:push_back(self:parseDeclaredClassMethod())
 			elseif self.lexer:current().type == ("["):byte() and (
-				self.lexer:lookahead().type == Lexeme.Type.RawString  or self.lexer:lookahead().type == Lexeme.Type.QuotedString
+				self.lexer:lookahead().type == Lexeme.Type.RawString or self.lexer:lookahead().type == Lexeme.Type.QuotedString
 			) then
 				local begin = self.lexer:current()
 				self:nextLexeme() -- [
@@ -3129,8 +3126,8 @@ function prototype.parseName(self: Parser, context: string?): Name
 		return name
 	end
 
-	local location = self.lexer:current().location
-	location.finish = location.begin
+	local currentLocation = self.lexer:current().location
+	local location = Location.new(currentLocation.begin, currentLocation.begin)
 
 	return Name.new(self.nameError, location)
 end
@@ -3154,8 +3151,8 @@ function prototype.parseIndexName(self: Parser, context: string?, previous: Posi
 		return result
 	end
 
-	local location = self.lexer:current().location
-	location.finish = location.begin
+	local currentLocation = self.lexer:current().location
+	local location = Location.new(currentLocation.begin, currentLocation.begin)
 
 	return Name.new(self.nameError, location)
 end

@@ -11,7 +11,7 @@ type Location = Location.Location
 
 	Used in [is](AstNode#is) and [as](AstNode#as).
 ]=]
-type class<T> = {
+export type class<T> = {
 	ClassIndex: number,
 	ClassType: T
 }

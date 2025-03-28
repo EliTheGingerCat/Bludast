@@ -214,9 +214,6 @@ end
 	Use this method to index the inner array. The `__index` metamethod could be employed instead, but this would ruin typechecking unless methods are typed statically.
 ]=]
 function prototype.get<T>(self: Vector<T>, index: number): T
-	if not (0 < index and index < self._size + 1) then
-		print(debug.traceback())
-	end
 	assert(0 < index and index < self._size + 1)
 	return self._data[index]
 end

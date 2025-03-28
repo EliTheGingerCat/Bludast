@@ -59,7 +59,7 @@ function prototype.back<T>(self: TempVector<T>): T
 	return self.storage:back()
 end
 
-function prototype.empty(self: TempVector<any>): ()
+function prototype.empty(self: TempVector<any>): boolean
 	return self.size_ == 0
 end
 
@@ -87,7 +87,7 @@ local function iterator<T>(state: iteratorState<T>): (number, T)
 	if state.index > state.size then
 		return nil :: any, nil :: any
 	else
-		return state.index, state.vector[state.index]
+		return state.index, state.vector:get(state.index)
 	end
 end
 function metatable.__iter<T>(self: TempVector<T>)
