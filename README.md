@@ -14,7 +14,7 @@ A manual translation of https://github.com/luau-lang/luau/ into Luau. That is, w
 
 ## Name
 
-I knew "Luau" has to be in the name somehow. The first part I worked on was AST folder. Thus, I thought of "Luauast", but that looks terrible. I had to have some sort of consonant in the middle. One class that really confused me was the DenseHashMap (which I later realised I did not need since Luau tables already use hashing), so I inserted a D in the middle. Thus, "Ludast". However, my mother told me that "Bludast" sounds better.
+I knew "Luau" has to be in the name somehow. The first part I worked on was `/Ast`. Thus, I thought of "Luauast", but that looks terrible. I had to have some sort of consonant in the middle. One class that really confused me was the DenseHashMap (which I later realised I did not need since Luau tables already use hashing), so I inserted a D in the middle. Thus, "Ludast". However, my mother told me that "Bludast" sounds better.
 
 ## Notation
 
@@ -28,7 +28,7 @@ Rather than putting most of the AST classes in one file, they each get their own
 
 DenseHash classes are not used in favour of regular hash maps (which is just a table).
 
-C++ has enum support, so function parameters and returns can specify what enum they belong to. For Luau, all enum values are `number`. There are hacky workarounds to this, and I might change it sometime, but for now I think it is not a huge type safety risk.
+C++ has enum support, so function parameters and returns can specify what enum they belong to. For Luau, all enum values are `number`. It could be fixed by lying to the type checker or using string values for enums, but for now I think it is not a huge type safety risk.
 
 The enums from `original/Common/Bytecode.h` are split up into separate files in `Bludast/Common/Bytecode`.
 
@@ -48,7 +48,7 @@ Current version (commit hash): [7d4033071abebe09971b410d362c00ffb3084afb](https:
 
 ## Contributions
 
-Contributions are only really necessary for maintenance or performance, though I am also open to adding other stuff to the repository that relates to the Luau language itself. For example, I think it might be interesting to add a Luau By Example similar to Rust By Example.
+Contributions are only necessary for maintenance or performance.
 
 **Dependencies**
 
@@ -60,7 +60,7 @@ Run `lune list` to see available scripts.
 
 **Moonwave**
 
-Use `moonwave dev` to view the site.
+Use `moonwave dev` to preview the site.
 
 **Testing**
 

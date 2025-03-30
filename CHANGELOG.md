@@ -9,13 +9,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - Documentation
-  - Changelog
-  - README
-  - License
-  - Moonwave
-- Parser
-  - Lexer
+	- README
+	- Changelog
+	- Moonwave
+	- License
+- Language
+	- Parser
+	- Compiler
 - Tests
 - Tooling
-  - Lune
-  - Rokit
+	- Lune
+	- Rokit
