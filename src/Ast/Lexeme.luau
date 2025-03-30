@@ -6,7 +6,6 @@ type Location = Location.Location
 
 --[=[
 	@class Lexeme
-	@tag struct
 
 	Struct from `root/Ast/src/Lexer.cpp`.  
 
@@ -100,7 +99,6 @@ export type Lexeme = {
 --[=[
 	@within Lexeme
 	@interface TypeEnum
-	@tag enum
 	
 	.Eof 1,
 	

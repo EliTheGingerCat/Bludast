@@ -1,6 +1,5 @@
 --[=[
 	@class AstTableAccess
-	@tag enum class
 
 	For some reason binary numbers are used.
 ]=]

@@ -12,7 +12,6 @@ export type AstExprGroup = AstNodeTypes.AstExprGroup
 
 --[=[
 	@class AstExprGroup
-	@tag class
 ]=]
 local AstExprGroup = {
 	ClassIndex = AstClassIndex(),
