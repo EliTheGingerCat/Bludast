@@ -16,34 +16,39 @@ export type AstExprTable = AstNodeTypes.AstExprTable
 ]=]
 
 --[=[
-	@class AstExprTable_Item::Kind
+	@within AstExprTable_Item
+	@prop Kind AstExprTable_Item_Kind
 ]=]
 
 --[=[
-	@within AstExprTable_Item::Kind
+	@class AstExprTable_Item_Kind
+]=]
+
+--[=[
+	@within AstExprTable_Item_Kind
 	@prop List 0
 	@readonly
 	@since v0.1.0
 
-	`foo`, in which case key is a nullptr
+	`foo`, in which case [`key`]() is nil.
 ]=]
 
 --[=[
-	@within AstExprTable_Item::Kind
+	@within AstExprTable_Item_Kind
 	@prop Record 1
 	@readonly
 	@since v0.1.0
 
-	`foo=bar`, in which case key is a AstExprConstantString
+	`foo=bar`, in which case `key` is an [AstExprConstantString].
 ]=]
 
 --[=[
-	@within AstExprTable_Item::Kind
+	@within AstExprTable_Item_Kind
 	@prop General 2
 	@readonly
 	@since v0.1.0
 
-	`[foo]=bar`
+	`[foo]=bar`, in which case `key` is an [AstExpr].
 ]=]
 
 local Item = {

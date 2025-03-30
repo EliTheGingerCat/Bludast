@@ -16,6 +16,8 @@
 	@prop Imprecise 1
 	@readonly
 	@since v0.1.0
+
+	Unused because Luau numbers will simply be set to the closest value if they are not representable, so it is impossible to tell if the result is imprecise.
 ]=]
 
 --[=[
@@ -23,6 +25,8 @@
 	@prop Malformed 2
 	@readonly
 	@since v0.1.0
+
+	The number was not syntactically correct.
 ]=]
 
 --[=[
@@ -30,6 +34,8 @@
 	@prop BinOverflow 3
 	@readonly
 	@since v0.1.0
+
+	Unused because Luau numbers will simply be truncated if they overflow, so it is impossible to tell.
 ]=]
 
 --[=[
@@ -37,6 +43,8 @@
 	@prop HexOverflow 4
 	@readonly
 	@since v0.1.0
+
+	Unused because Luau numbers will simply be truncated if they overflow, so it is impossible to tell.
 ]=]
 
 return {

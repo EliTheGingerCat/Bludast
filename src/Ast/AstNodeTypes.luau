@@ -309,7 +309,7 @@ export type AstStatDeclareClass = AstStat & {
 	Whether the `@checked` attribute was applied to the function, which looks like:
 
 	```lua
-	@checked declare function name() -> ()
+	 @checked declare function name() -> ()
 	```
 ]=]
 
@@ -489,11 +489,10 @@ export type AstTypeError = AstType & {
 	Whether the `@checked` attribute was applied to the function, which looks like:
 
 	```lua
-	@checked
-	local function name()
-
-	end
+	type fetch = @checked (id: number)) -> string
 	```
+
+	(Double closing parentheses because Luau highlighting was being weird. It should really be `(id: number) -> string`.)
 ]=]
 
 export type AstTypeFunction = AstType & {
