@@ -11,23 +11,24 @@ local CompileError = {}
 local prototype = {}
 local metatable = {__index = prototype}
 
-export type CompileError = typeof(setmetatable({} :: {
-	--[=[
-		@within CompileError
-		@prop location Location
-		@readonly
-		@private
-		@since v0.1.0
-	]=]
-	location: Location,
+--[=[
+	@within CompileError
+	@prop location Location
+	@readonly
+	@private
+	@since v0.1.0
+]=]
 
-	--[=[
-		@within CompileError
-		@prop message string
-		@readonly
-		@private
-		@since v0.1.0
-	]=]
+--[=[
+	@within CompileError
+	@prop message string
+	@readonly
+	@private
+	@since v0.1.0
+]=]
+
+export type CompileError = typeof(setmetatable({} :: {
+	location: Location,
 	message: string
 }, metatable))
 

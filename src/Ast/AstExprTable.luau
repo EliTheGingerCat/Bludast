@@ -14,39 +14,42 @@ export type AstExprTable = AstNodeTypes.AstExprTable
 --[=[
 	@class AstExprTable_Item
 ]=]
+
+--[=[
+	@class AstExprTable_Item::Kind
+]=]
+
+--[=[
+	@within AstExprTable_Item::Kind
+	@prop List 0
+	@readonly
+	@since v0.1.0
+
+	`foo`, in which case key is a nullptr
+]=]
+
+--[=[
+	@within AstExprTable_Item::Kind
+	@prop Record 1
+	@readonly
+	@since v0.1.0
+
+	`foo=bar`, in which case key is a AstExprConstantString
+]=]
+
+--[=[
+	@within AstExprTable_Item::Kind
+	@prop General 2
+	@readonly
+	@since v0.1.0
+
+	`[foo]=bar`
+]=]
+
 local Item = {
-	--[=[
-		@class AstExprTable_Item::Kind
-	]=]
 	Kind = {
-		--[=[
-			@within AstExprTable_Item::Kind
-			@prop List 0
-			@readonly
-			@since v0.1.0
-
-			`foo`, in which case key is a nullptr
-		]=]
 		List = 0,
-
-		--[=[
-			@within AstExprTable_Item::Kind
-			@prop Record 1
-			@readonly
-			@since v0.1.0
-
-			`foo=bar`, in which case key is a AstExprConstantString
-		]=]
 		Record = 1,
-
-		--[=[
-			@within AstExprTable_Item::Kind
-			@prop General 2
-			@readonly
-			@since v0.1.0
-
-			`[foo]=bar`
-		]=]
 		General = 2
 	}
 }

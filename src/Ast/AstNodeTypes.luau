@@ -198,25 +198,26 @@ export type AstExprLocal = AstExpr & {
 	upvalue: boolean
 }
 
+--[=[
+	@within AstExprTable_Item
+	@prop kind number
+
+	Corresponds to (kind enum)[AstExprTable_Item::Kind].
+]=]
+
+--[=[
+	@within AstExprTable_Item
+	@prop key AstExpr?
+]=]
+
+--[=[
+	@within AstExprTable_Item
+	@prop value AstExpr?
+]=]
+
 export type TableItem = {
-	--[=[
-		@within AstExprTable_Item
-		@prop kind number
-
-		Corresponds to (kind enum)[AstExprTable_Item::Kind].
-	]=]
 	kind: number,
-
-	--[=[
-		@within AstExprTable_Item
-		@prop key AstExpr?
-	]=]
 	key: AstExpr?,
-
-	--[=[
-		@within AstExprTable_Item
-		@prop value AstExpr?
-	]=]
 	value: AstExpr
 }
 
@@ -265,20 +266,20 @@ export type AstStatAssign = AstStat & {
 	values: {AstExpr}
 }
 
-export type AstStatBlock = AstStat & {
-	body: {AstStat},
-
-	--[=[
+--[=[
 	@within AstStatBlock
 	@prop hasEnd boolean
 	@since v0.1.0
 
 	Indicates whether or not this block has been terminated in a syntactically valid way.
-	
+
 	This is usually but not always done with the 'end' keyword.  AstStatIf and AstStatRepeat are the two main exceptions to this.
-	
+
 	The 'then' clause of an if statement can properly be closed by the keywords 'else' or 'elseif'.  A 'repeat' loop's body is closed with the 'until' keyword.
-	]=]
+]=]
+
+export type AstStatBlock = AstStat & {
+	body: {AstStat},
 	hasEnd: boolean
 }
 
@@ -300,6 +301,18 @@ export type AstStatDeclareClass = AstStat & {
 	indexer: AstTableIndexer
 }
 
+--[=[
+	@within AstTypeFunction
+	@method isCheckedFunction
+	@return boolean
+
+	Whether the `@checked` attribute was applied to the function, which looks like:
+
+	```lua
+	@checked declare function name() -> ()
+	```
+]=]
+
 export type AstStatDeclareFunction = AstStat & {
 	attributes: {AstAttr},
 	name: AstName,
@@ -308,34 +321,23 @@ export type AstStatDeclareFunction = AstStat & {
 	params: AstTypeList,
 	paramNames: {AstArgumentName?},
 	returnTypes: AstTypeList,
-
-	--[=[
-		@within AstTypeFunction
-		@method isCheckedFunction
-		@return boolean
-
-		Whether the `@checked` attribute was applied to the function, which looks like:
-
-		```lua
-		@checked declare function name() -> ()
-		```
-	]=]
 	isCheckedFunction: (self: AstStatDeclareFunction) -> boolean
 }
 
-export type AstStatDeclareGlobal = AstStat & {
-	--[=[
-		@within AstStatDeclareGlobal
-		@prop name AstName
-		@since v0.1.0
-	]=]
-	name: AstName,
+--[=[
+	@within AstStatDeclareGlobal
+	@prop name AstName
+	@since v0.1.0
+]=]
 
-	--[=[
-		@within AstStatDeclareGlobal
-		@prop type AstType
-		@since v0.1.0
-	]=]
+--[=[
+	@within AstStatDeclareGlobal
+	@prop type AstType
+	@since v0.1.0
+]=]
+
+export type AstStatDeclareGlobal = AstStat & {
+	name: AstName,
 	type: AstType
 }
 
@@ -435,40 +437,41 @@ export type AstTableIndexer = {
 	accessLocation: Location?
 }
 
+--[=[
+	@within AstTableProp
+	@prop name AstName
+	@since v0.1.0
+]=]
+
+--[=[
+	@within AstTableProp
+	@prop location Location
+	@since v0.1.0
+]=]
+
+--[=[
+	@within AstTableProp
+	@prop type AstType
+	@since v0.1.0
+]=]
+
+--[=[
+	@within AstTableProp
+	@prop access number
+	@since v0.1.0
+]=]
+
+--[=[
+	@within AstTableProp
+	@prop accessLocation Location?
+	@since v0.1.0
+]=]
+
 export type AstTableProp = {
-	--[=[
-		@within AstTableProp
-		@prop name AstName
-		@since v0.1.0
-	]=]
 	name: AstName,
-	
-	--[=[
-		@within AstTableProp
-		@prop location Location
-		@since v0.1.0
-	]=]
 	location: Location,
-
-	--[=[
-		@within AstTableProp
-		@prop type AstType
-		@since v0.1.0
-	]=]
 	type: AstType,
-
-	--[=[
-		@within AstTableProp
-		@prop access number
-		@since v0.1.0
-	]=]
 	access: number,
-
-	--[=[
-		@within AstTableProp
-		@prop accessLocation Location?
-		@since v0.1.0
-	]=]
 	accessLocation: Location?
 }
 
@@ -478,6 +481,21 @@ export type AstTypeError = AstType & {
 	messageIndex: number
 }
 
+--[=[
+	@within AstTypeFunction
+	@method isCheckedFunction
+	@return boolean
+
+	Whether the `@checked` attribute was applied to the function, which looks like:
+
+	```lua
+	@checked
+	local function name()
+
+	end
+	```
+]=]
+
 export type AstTypeFunction = AstType & {
 	attributes: {AstAttr},
 	generics: {AstGenericType},
@@ -485,21 +503,6 @@ export type AstTypeFunction = AstType & {
 	argTypes: AstTypeList,
 	argNames: {AstArgumentName?},
 	returnTypes: AstTypeList,
-
-	--[=[
-		@within AstTypeFunction
-		@method isCheckedFunction
-		@return boolean
-
-		Whether the `@checked` attribute was applied to the function, which looks like:
-
-		```lua
-		@checked
-		local function name()
-
-		end
-		```
-	]=]
 	isCheckedFunction: (self: AstTypeFunction) -> boolean
 }
 
@@ -507,33 +510,35 @@ export type AstTypeIntersection = AstType & {
 	types: {AstType}
 }
 
+--[=[
+	@within AstTypeList
+	@prop types {AstType}
+]=]
+
+--[=[
+	@within AstTypeList
+	@prop tailType AstTypePack?
+
+	Nil indicates no tail, not an untyped tail.
+]=]
+
 export type AstTypeList = {
-	--[=[
-		@within AstTypeList
-		@prop types {AstType}
-	]=]
 	types: {AstType},
-
-	--[=[
-		@within AstTypeList
-		@prop tailType AstTypePack?
-
-		Nil indicates no tail, not an untyped tail.
-	]=]
 	tailType: AstTypePack?
 }
 
-export type AstTypeOrPack = {
-	--[=[
-		@within AstTypeOrPack
-		@prop type AstType
-	]=]
-	type: AstType?,
+--[=[
+	@within AstTypeOrPack
+	@prop type AstType
+]=]
 
-	--[=[
-		@within AstTypeOrPack
-		@prop typePack AstTypePack
-	]=]
+--[=[
+	@within AstTypeOrPack
+	@prop typePack AstTypePack
+]=]
+
+export type AstTypeOrPack = {
+	type: AstType?,
 	typePack: AstTypePack?
 }
 

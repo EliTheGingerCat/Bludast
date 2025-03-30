@@ -16,79 +16,84 @@ local Lexeme = {}
 local prototype = {}
 local metatable = {__index = prototype}
 
-export type Lexeme = {
-	--[=[
-		@within Lexeme
-		@prop type number
-		@readonly
-		@since v0.1.0
+--[=[
+	@within Lexeme
+	@prop type number
+	@readonly
+	@since v0.1.0
 
-		Corresponds to the [Lexeme Type Enum](Lexeme#Type).
-	]=]
-	type: number,
-	--[=[
-		@within Lexeme
-		@prop location Location
-		@readonly
-		@since v0.1.0
-	]=]
-	location: Location,
+	Corresponds to the [Lexeme Type Enum](Lexeme#Type).
+]=]
 
-	--[=[
-		@within Lexeme
-		@prop length number
-		@readonly
-		@private
-		@since v0.1.0
-	]=]
+--[=[
+	@within Lexeme
+	@prop location Location
+	@readonly
+	@since v0.1.0
+]=]
+
+--[=[
+	@within Lexeme
+	@prop length number
+	@readonly
+	@private
+	@since v0.1.0
+
 	-- length is used to extract a slice from the input buffer.
 	-- This field is only valid for certain lexeme types which don't duplicate portions of input
 	-- but instead store a pointer to a location in the input buffer and the length of lexeme.
+]=]
+
+--[=[
+	@within Lexeme
+	@prop data string?
+	@readonly
+	@since v0.1.0
+
+	For types String, Number, or Comment.
+
+	Every lexeme may have either [data](Lexeme#data), [name](Lexeme#name), or [codepoint](Lexeme#codepoint).
+]=]
+
+--[=[
+	@within Lexeme
+	@prop name string?
+	@readonly
+	@since v0.1.0
+
+	For type Name.
+]=]
+
+--[=[
+	@within Lexeme
+	@prop codepoint number?
+	@since v0.1.0
+
+	For type BrokenUnicode.
+]=]
+
+--[=[
+	@within Lexeme
+	@method getLength
+	@return number
+	@since v0.1.0
+]=]
+
+--[=[
+	@within Lexeme
+	@method toString
+	@return string
+	@since v0.1.0
+]=]
+
+export type Lexeme = {
+	type: number,
+	location: Location,
 	length: number,
-
-	--[=[
-		@within Lexeme
-		@prop data string?
-		@readonly
-		@since v0.1.0
-
-		For types String, Number, or Comment.
-
-		Every lexeme may have either [data](Lexeme#data), [name](Lexeme#name), or [codepoint](Lexeme#codepoint).
-	]=]
 	data: string?,
-	--[=[
-		@within Lexeme
-		@prop name string?
-		@readonly
-		@since v0.1.0
-
-		For type Name.
-	]=]
 	name: string?,
-	--[=[
-		@within Lexeme
-		@prop codepoint number?
-		@since v0.1.0
-
-		For type BrokenUnicode.
-	]=]
 	codepoint: number?,
-
-	--[=[
-		@within Lexeme
-		@method getLength
-		@return number
-		@since v0.1.0
-	]=]
 	getLength: (self: Lexeme) -> number,
-
-	--[=[
-		@within Lexeme
-		@method toString
-		@return string
-		@since v0.1.0
-	]=]
 	toString: (self: Lexeme) -> string
 }
 

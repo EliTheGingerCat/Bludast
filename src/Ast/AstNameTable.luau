@@ -11,31 +11,32 @@ type Pair<T1, T2> = Pair.Pair<T1, T2>
 ]=]
 local Entry = {}
 
+--[=[
+	@within AstNameTable_Entry
+	@prop value AstName
+	@readonly
+	@since v0.1.0
+]=]
+
+--[=[
+	@within AstNameTable_Entry
+	@prop length number
+	@readonly
+	@since v0.1.0
+]=]
+
+--[=[
+	@within AstNameTable_Entry
+	@prop type number
+	@readonly
+	@since v0.1.0
+
+	Corresponds to [lexeme type](Lexeme#Type).
+]=]
+
 export type Entry = {
-	--[=[
-		@within AstNameTable_Entry
-		@prop value AstName
-		@readonly
-		@since v0.1.0
-	]=]
 	value: AstName,
-
-	--[=[
-		@within AstNameTable_Entry
-		@prop length number
-		@readonly
-		@since v0.1.0
-	]=]
 	length: number,
-
-	--[=[
-		@within AstNameTable_Entry
-		@prop type number
-		@readonly
-		@since v0.1.0
-
-		Corresponds to [lexeme type](Lexeme#Type).
-	]=]
 	type: number
 }
 

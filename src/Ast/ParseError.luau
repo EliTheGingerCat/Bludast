@@ -11,23 +11,24 @@ local ParseError = {}
 local prototype = {}
 local metatable = {__index = prototype}
 
-export type ParseError = typeof(setmetatable({} :: {
-	--[=[
-		@within ParseError
-		@prop location Location
-		@readonly
-		@private
-		@since v0.1.0
-	]=]
-	location: Location,
+--[=[
+	@within ParseError
+	@prop location Location
+	@readonly
+	@private
+	@since v0.1.0
+]=]
 
-	--[=[
-		@within ParseError
-		@prop message string
-		@readonly
-		@private
-		@since v0.1.0
-	]=]
+--[=[
+	@within ParseError
+	@prop message string
+	@readonly
+	@private
+	@since v0.1.0
+]=]
+
+export type ParseError = typeof(setmetatable({} :: {
+	location: Location,
 	message: string
 }, metatable))
 

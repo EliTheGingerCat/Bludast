@@ -162,21 +162,22 @@ end
 ]=]
 local MatchLexeme = {}
 
-type MatchLexeme = {
-	--[=[
-		@within MatchLexeme
-		@prop type number -- (Lexeme type)[Lexeme#Type]
-		@readonly
-		@since v0.1.0
-	]=]
-	type: number,
+--[=[
+	@within MatchLexeme
+	@prop type number -- (Lexeme type)[Lexeme#Type]
+	@readonly
+	@since v0.1.0
+]=]
 
-	--[=[
-		@within MatchLexeme
-		@prop position Position
-		@readonly
-		@since v0.1.0
-	]=]
+--[=[
+	@within MatchLexeme
+	@prop position Position
+	@readonly
+	@since v0.1.0
+]=]
+
+type MatchLexeme = {
+	type: number,
 	position: Position
 }
 
@@ -199,19 +200,20 @@ end
 ]=]
 local Parser_Function = {}
 
-type Parser_Function = {
-	--[=[
-		@within Parser_Function
-		@prop vararg boolean
-		@since v0.1.0
-	]=]
-	vararg: boolean,
+--[=[
+	@within Parser_Function
+	@prop vararg boolean
+	@since v0.1.0
+]=]
 
-	--[=[
-		@within Parser_Function
-		@prop loopDepth number
-		@since v0.1.0
-	]=]
+--[=[
+	@within Parser_Function
+	@prop loopDepth number
+	@since v0.1.0
+]=]
+
+type Parser_Function = {
+	vararg: boolean,
 	loopDepth: number
 }
 
@@ -242,21 +244,22 @@ end
 ]=]
 local Name = {}
 
-type Name = {
-	--[=[
-		@within Name
-		@prop name AstName
-		@readonly
-		@since v0.1.0
-	]=]
-	name: AstName,
+--[=[
+	@within Name
+	@prop name AstName
+	@readonly
+	@since v0.1.0
+]=]
 
-	--[=[
-		@within Name
-		@prop location Location
-		@readonly
-		@since v0.1.0
-	]=]
+--[=[
+	@within Name
+	@prop location Location
+	@readonly
+	@since v0.1.0
+]=]
+
+type Name = {
+	name: AstName,
 	location: Location
 }
 
@@ -289,19 +292,20 @@ end
 ]=]
 local Binding = {}
 
-type Binding = {
-	--[=[
-		@within Binding
-		@prop name Name
-		@since v0.1.0
-	]=]
-	name: Name,
+--[=[
+	@within Binding
+	@prop name Name
+	@since v0.1.0
+]=]
 
-	--[=[
-		@within Binding
-		@prop annotation AstType
-		@since v0.1.0
-	]=]
+--[=[
+	@within Binding
+	@prop annotation AstType
+	@since v0.1.0
+]=]
+
+type Binding = {
+	name: Name,
 	annotation: AstType?
 }
 

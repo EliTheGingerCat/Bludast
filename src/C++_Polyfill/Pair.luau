@@ -3,25 +3,26 @@
 
 	Class template from [C++ std](https://en.cppreference.com/w/cpp/utility/pair).
 
-	Holds two values. They can be of different types. 
+	Holds two values. They can be of different types.
 ]=]
 local Pair = {}
 
-export type Pair<T1, T2> = {
-	--[=[
-		@within Pair
-		@prop first T1
-		@readonly
-		@since v0.1.0
-	]=]
-	first: T1,
+--[=[
+	@within Pair
+	@prop first T1
+	@readonly
+	@since v0.1.0
+]=]
 
-	--[=[
-		@within Pair
-		@prop second T2
-		@readonly
-		@since v0.1.0
-	]=]
+--[=[
+	@within Pair
+	@prop second T2
+	@readonly
+	@since v0.1.0
+]=]
+
+export type Pair<T1, T2> = {
+	first: T1,
 	second: T2
 }
 
