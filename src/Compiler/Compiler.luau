@@ -2308,7 +2308,7 @@ function prototype.compileExprBinary(self: Compiler, expr: AstExprBinary, target
 					local rr = self:compileExprAuto(expr.right, rs)
 					local op = if expr.op == AstExprBinary.Op.Sub then LuauOpcode.LOP_SUBRK else LuauOpcode.LOP_DIVRK
 
-					self.bytecode:emitABC(op, target, uint8_t(lc), uint8_t(rc))
+					self.bytecode:emitABC(op, target, uint8_t(lc), uint8_t(rr))
 
 					if FastVariables.LuauCompileTempTypeInfo then
 						self:hintTemporaryExprRegType(expr.right, rr, LuauBytecodeType.LBC_TYPE_NUMBER, 1)
@@ -2691,7 +2691,7 @@ function prototype.compileExprTable(self: Compiler, expr: AstExprTable, target: 
 	end
 
 	-- flush last array chunk; note that this needs multret handling if the last expression was multret
-	if arrayChunkCurrent then
+	if arrayChunkCurrent ~= 0 then
 		self.bytecode:emitABC(LuauOpcode.LOP_SETLIST, reg, arrayChunkReg, if multRet then 0 else uint8_t(arrayChunkCurrent + 1))
 		self.bytecode:emitAux(arrayIndex)
 	end
@@ -3123,7 +3123,7 @@ function prototype.compileExprListTemp(self: Compiler, list: {AstExpr}, target: 
 		end
 	elseif #list > 0 then
 		for i = 1, #list - 1 do
-			self:compileExprTemp(list[i], uint8_t(target + i))
+			self:compileExprTemp(list[i], uint8_t(target + i - 1))
 		end
 
 		self:compileExprTempN(list[#list], uint8_t(target + #list - 1), uint8_t(targetCount - (#list - 1)), targetTop)
@@ -3977,7 +3977,7 @@ function prototype.compileStatForIn(self: Compiler, stat: AstStatForIn): ()
 	self.bytecode:emitAD(LuauOpcode.LOP_FORGLOOP, regs, 0)
 	self.bytecode:emitAux(
 		bit32.bor(
-			if skipOp == LuauOpcode.LOP_FORGPREP_NEXT then 0x80000000 else 0,
+			if skipOp == LuauOpcode.LOP_FORGPREP_INEXT then 0x80000000 else 0,
 			#stat.vars
 		)
 	)
@@ -4931,11 +4931,11 @@ end :: (
 	@within Compiler
 	@since 0.1.0
 ]=]
-function Compiler.compile(source: string, options: CompileOptions, parseOptions: ParseOptions, encoder: BytecodeEncoder?): string
+function Compiler.compile(source: string, options: CompileOptions?, parseOptions: ParseOptions?, encoder: BytecodeEncoder?): string
 	local scope = LUAU_TIMETRACE_SCOPE("compile", "Compiler")
 
 	local names = AstNameTable.new()
-	local result = Parser.parse(source, #source, names, parseOptions)
+	local result = Parser.parse(source, #source, names, parseOptions or ParseOptions.new())
 
 	if not result.errors:empty() then
 		-- Users of this function expect only a single error message
@@ -4950,7 +4950,7 @@ function Compiler.compile(source: string, options: CompileOptions, parseOptions:
 
 	local bcb = BytecodeBuilder.new(encoder)
 	local success, e: CompileError = pcall(function()
-		return Compiler.compileOrThrow(bcb, result, names, options) :: any
+		return Compiler.compileOrThrow(bcb, result, names, options or CompileOptions.new()) :: any
 	end)
 
 	if success then

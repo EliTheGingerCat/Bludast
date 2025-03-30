@@ -32,7 +32,7 @@ local metatable = {__index = prototype}
 ]=]
 function AstExprInterpString.new(location: Location, strings: {string}, expressions: {AstExpr}): AstExprInterpString
 	local self = AstExpr.interface.new(AstExprInterpString.ClassIndex, location) :: AstExprInterpString
-	self.strings = string
+	self.strings = strings
 	self.expressions = expressions
 	setmetatable(self, metatable)
 	return self

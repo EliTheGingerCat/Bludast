@@ -506,7 +506,7 @@ function prototype.readNext(self: Lexer): Lexeme
 
 	local case = self:peekch()
 	if case == CHAR_ZERO then
-		return Lexeme.new(Location.new(Position.new(start.line, start.column), 0), Lexeme.Type.Eof)
+		return Lexeme.new(Location.new(start, 0), Lexeme.Type.Eof)
 	elseif case == "-" then
 		if self:peekch(1) == ">" then
 			self:consume()
