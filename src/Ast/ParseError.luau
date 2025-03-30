@@ -53,7 +53,7 @@ end
 	@param ... any
 	@since v0.1.0
 ]=]
-function ParseError.raise(location: Location, format: string, ...: any): ()
+function ParseError.raise(location: Location, format: string, ...: any): never
 	local message = format:format(...)
 
 	error(ParseError.new(location, message))

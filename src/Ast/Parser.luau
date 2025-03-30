@@ -74,6 +74,7 @@ local HotComment = require("./HotComment")
 local Lexeme = require("./Lexeme")
 local Lexer = require("./Lexer")
 local Location = require("@Shared/Location")
+local LUAU_ASSERT = require("@Shared/LUAU_ASSERT")
 local NumberConversions = require("@Polyfill/NumberConversions")
 local Pair = require("@Polyfill/Pair")
 local ParseError = require("./ParseError")
@@ -334,20 +335,6 @@ local kAttributeEntries: {AttributeEntry} = {
 		type = AstAttr.Type.Native
 	}
 }
-
---[=[
-	@within Parser
-	@private
-	@since v0.1.0
-	@tag local
-
-	Useful for when there are multiple return statements in the same function.
-]=]
-local function destroy(vectors: {TempVector<any>}): ()
-	for _, vector in vectors do
-		vector:destroy()
-	end
-end
 
 --[=[
 	@within Parser
@@ -1613,6 +1600,7 @@ function prototype.parseFunctionBody(self: Parser, hasself: boolean, matchFuncti
 	if localName then
 		funLocal = self:pushLocal(Binding.new(localName, nil))
 	end
+	assert(funLocal) -- Eli: NEW_SOLVER
 
 	local localsBegin = self:saveLocals()
 
@@ -2211,8 +2199,8 @@ function prototype.parseTypeSuffix(self: Parser, typeAst: AstType, begin: Locati
 		return AstTypeIntersection.new(location, copy)
 	end
 
-	assert(false)
-	ParseError.raise(begin, "Composite type was not an intersection or union.")
+	LUAU_ASSERT(false)
+	ParseError.raise(begin, "Composite type was not an intersection or union."); error("")
 end
 
 --[=[
