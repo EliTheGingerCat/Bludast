@@ -140,6 +140,7 @@ return {
 		type name =
 			| "Fred"
 			| "Jones"
+		```
 	]=]
 	LuauLeadingBarAndAmpersand2 = false,
 
