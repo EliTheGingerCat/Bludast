@@ -18,6 +18,27 @@ export type AstExprTable = AstNodeTypes.AstExprTable
 --[=[
 	@within AstExprTable_Item
 	@prop Kind AstExprTable_Item_Kind
+	@since v0.1.0
+]=]
+
+--[=[
+	@within AstExprTable_Item
+	@prop kind number
+	@since v0.1.0
+
+	Corresponds to [kind enum](AstExprTable_Item_Kind).
+]=]
+
+--[=[
+	@within AstExprTable_Item
+	@prop key AstExpr?
+	@since v0.1.0
+]=]
+
+--[=[
+	@within AstExprTable_Item
+	@prop value AstExpr?
+	@since v0.1.0
 ]=]
 
 --[=[
@@ -30,7 +51,7 @@ export type AstExprTable = AstNodeTypes.AstExprTable
 	@readonly
 	@since v0.1.0
 
-	`foo`, in which case [`key`]() is nil.
+	`foo`, in which case [`key`](AstExprTable_Item#key) is nil.
 ]=]
 
 --[=[
@@ -39,7 +60,7 @@ export type AstExprTable = AstNodeTypes.AstExprTable
 	@readonly
 	@since v0.1.0
 
-	`foo=bar`, in which case `key` is an [AstExprConstantString].
+	`foo=bar`, in which case [`key`](AstExprTable_Item#key) is an [AstExprConstantString].
 ]=]
 
 --[=[
@@ -48,7 +69,7 @@ export type AstExprTable = AstNodeTypes.AstExprTable
 	@readonly
 	@since v0.1.0
 
-	`[foo]=bar`, in which case `key` is an [AstExpr].
+	`[foo]=bar`, in which case [`key`](AstExprTable_Item#key) is any [AstExpr].
 ]=]
 
 local Item = {
@@ -61,11 +82,6 @@ local Item = {
 
 --[=[
 	@within AstExprTable_Item
-	@function new
-	@param kind number
-	@param key AstExpr?
-	@param value AstExpr
-	@return AstExprTable_Item
 	@since v0.1.0
 ]=]
 function Item.new(kind: number, key: AstExpr?, value: AstExpr): Item
@@ -88,6 +104,10 @@ local AstExprTable = {
 local prototype = setmetatable({}, AstExpr.metatable)
 local metatable = {__index = prototype}
 
+--[=[
+	@within AstExprTable
+	@since v0.1.0
+]=]
 function AstExprTable.new(location: Location, items: {Item}): AstExprTable
 	local self = AstExpr.interface.new(AstExprTable.ClassIndex, location) :: AstExprTable
 	self.items = items

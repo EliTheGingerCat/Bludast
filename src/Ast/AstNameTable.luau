@@ -42,11 +42,7 @@ export type Entry = {
 
 --[=[
 	@within AstNameTable_Entry
-	@function new
-	@param value AstName
-	@param length number
-	@param typeLex number
-	@return Entry
+	@since v0.1.0
 ]=]
 function Entry.new(value: AstName, length: number, typeLex: number): Entry
 	return {
@@ -157,9 +153,6 @@ end
 
 --[=[
 	@within AstNameTable
-	@method get
-	@param name string
-	@return AstName
 	@since v0.1.0
 ]=]
 function prototype.get(self: AstNameTable, name: string): AstName

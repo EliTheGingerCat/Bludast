@@ -198,23 +198,6 @@ export type AstExprLocal = AstExpr & {
 	upvalue: boolean
 }
 
---[=[
-	@within AstExprTable_Item
-	@prop kind number
-
-	Corresponds to (kind enum)[AstExprTable_Item::Kind].
-]=]
-
---[=[
-	@within AstExprTable_Item
-	@prop key AstExpr?
-]=]
-
---[=[
-	@within AstExprTable_Item
-	@prop value AstExpr?
-]=]
-
 export type TableItem = {
 	kind: number,
 	key: AstExpr?,
