@@ -44,7 +44,7 @@ Instead of 64 bit numbers, pairs of 32 bit numbers are used.
 
 Current version (commit hash): [7d4033071abebe09971b410d362c00ffb3084afb](https://github.com/luau-lang/luau/tree/7d4033071abebe09971b410d362c00ffb3084afb)
 
-`/Ast` is sort of done (needs testing), working on `/Compiler`.
+`/Ast` and `/Compiler` are fully translated, though there are still many bugs, so current development is going towards testing and fixing.
 
 ## Contributions
 
