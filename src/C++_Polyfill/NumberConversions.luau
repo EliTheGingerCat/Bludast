@@ -29,6 +29,14 @@ local function twosComplement(unsigned: number, length: number): number
 	end
 end
 
+local function truncateDecimal(n: number): number
+	if n >= 0 then
+		return math.floor(n)
+	else
+		return math.ceil(n)
+	end
+end
+
 --[=[
 	@within NumberConversions
 	@since v0.1.0
@@ -47,11 +55,7 @@ function NumberConversions.booleanToNumber(value: boolean): number
 end
 
 function NumberConversions.int(n: number): number
-	if n >= 0 then
-		return math.floor(n)
-	else
-		return math.ceil(n)
-	end
+	return twosComplement(NumberConversions.uint32_t(n), 4)
 end
 
 --[=[
@@ -75,15 +79,16 @@ end
 	@since v0.1.0
 ]=]
 function NumberConversions.uint8_t(n: number): number
-	return n % MAX_8
+	return truncateDecimal(n) % MAX_8
 end
 
 --[=[
 	@within NumberConversions
 	@since v0.1.0
+	LOL
 ]=]
 function NumberConversions.uint16_t(n: number): number
-	return n % MAX_16
+	return truncateDecimal(n) % MAX_16
 end
 
 --[=[
@@ -91,7 +96,7 @@ end
 	@since v0.1.0
 ]=]
 function NumberConversions.uint32_t(n: number): number
-	return n % MAX_32
+	return truncateDecimal(n) % MAX_32
 end
 
 --[=[
@@ -137,7 +142,7 @@ end
 	Performs wrap around so that the result will always be positive and less than the maximum `u32` value.
 ]=]
 function NumberConversions.unsigned(n: number): number
-	return n % MAX_32
+	return truncateDecimal(n) % MAX_32
 end
 
 return NumberConversions

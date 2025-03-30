@@ -82,6 +82,9 @@ function prototype.assign(self: ValueVisitor, var: AstExpr): ()
 	local gv = var:as(AstExprGlobal)
 	
 	if lv then
+		if self.variables[lv.localAst] == nil then
+			self.variables[lv.localAst] = ValueTracking.Variable.new()
+		end
 		self.variables[lv.localAst].written = true
 	elseif gv then
 		self.globals[gv.name.value or ""] = ValueTracking.Global.Written

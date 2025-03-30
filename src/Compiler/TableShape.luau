@@ -109,9 +109,9 @@ function ShapeVisitor.new(shapes: {[AstExprTable]: TableShape}): ShapeVisitor
 	return self
 end
 
-local function hashField(field: Pair<AstExprTable, AstName>): string
+local function hashField(field: Pair<AstExprTable, string>): string
 	-- DarkenedRing: This is terrible, and there is 100% a better way. Sorry. TODO fix this
-	return tostring(field.first) .. tostring(field.second)
+	return tostring(field.first) .. field.second
 end
 
 function prototype.assignField(self: ShapeVisitor, expr: AstExpr, index: any): ()
@@ -122,7 +122,7 @@ function prototype.assignField(self: ShapeVisitor, expr: AstExpr, index: any): (
 		if lv then
 			local exprTable = self.tables[lv.localAst]
 			if exprTable then
-				local field = hashField(Pair.new(exprTable, index))
+				local field = hashField(Pair.new(exprTable, index.value or ""))
 
 				if not self.fields[field] then
 					self.fields[field] = true
@@ -150,6 +150,10 @@ function prototype.assignField(self: ShapeVisitor, expr: AstExpr, index: any): (
 		local iter = index:as(AstExprLocal)
 
 		if number then
+			if self.shapes[exprTable] == nil then
+				self.shapes[exprTable] = TableShapeStruct.new()
+			end
+
 			local shape = self.shapes[exprTable]
 
 			if number.value == shape.arraySize + 1 then
@@ -158,6 +162,10 @@ function prototype.assignField(self: ShapeVisitor, expr: AstExpr, index: any): (
 		elseif iter then
 			local bound = self.loops[iter.localAst]
 			if bound then
+				if self.shapes[exprTable] == nil then
+					self.shapes[exprTable] = TableShapeStruct.new()
+				end
+
 				local shape = self.shapes[exprTable]
 
 				if shape.arraySize == 0 then

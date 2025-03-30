@@ -823,6 +823,7 @@ end
 ]=]
 function prototype.addConstantBoolean(self: BytecodeBuilder, value: boolean): number
 	local c = Constant.new(Constant.Type.Type_Boolean)
+	c.valueBoolean = value
 
 	local k = ConstantKey.new(Constant.Type.Type_Boolean, btn(value))
 	return self:addConstant(k, c)
@@ -2307,7 +2308,7 @@ function prototype.dumpConstant(self: BytecodeBuilder, result: stringWrap, k: nu
 
 		if BytecodeBuilder.printableStringConstant(str.data, str.length) then
 			if str.length < 32 then
-				formatAppend(result, str.data)
+				formatAppend(result, "'%s'", str.data)
 			else
 				formatAppend(result, "'%s'...", str.data:sub(1, 32))
 			end
@@ -2334,7 +2335,7 @@ function prototype.dumpConstant(self: BytecodeBuilder, result: stringWrap, k: nu
 				LUAU_ASSERT(id.type == Constant.Type.Type_String and id.valueString <= self.debugStrings:size())
 
 				local str = self.debugStrings:get(id.valueString)
-				formatAppend(result, "%s", str.data)
+				formatAppend(result, ".%s", str.data)
 			end
 
 			if count > 2 then
@@ -2342,7 +2343,7 @@ function prototype.dumpConstant(self: BytecodeBuilder, result: stringWrap, k: nu
 				LUAU_ASSERT(id.type == Constant.Type.Type_String and id.valueString <= self.debugStrings:size())
 
 				local str = self.debugStrings:get(id.valueString)
-				formatAppend(result, "%s", str.data)
+				formatAppend(result, ".%s", str.data)
 			end
 		end
 	elseif data.type == Constant.Type.Type_Table then
@@ -2496,11 +2497,11 @@ function prototype.dumpInstruction(self: BytecodeBuilder, codeIndex: number, res
 		result.s ..= "]\n"
 	elseif op == LuauOpcode.LOP_SUBRK then
 		formatAppend(result, "SUBRK R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn))
-		self:dumpConstant(result, LUAU_INSN_C(insn))
+		self:dumpConstant(result, LUAU_INSN_B(insn))
 		formatAppend(result, "] R%d\n", LUAU_INSN_C(insn))
 	elseif op == LuauOpcode.LOP_DIVRK then
 		formatAppend(result, "DIVRK R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn))
-		self:dumpConstant(result, LUAU_INSN_C(insn))
+		self:dumpConstant(result, LUAU_INSN_B(insn))
 		formatAppend(result, "] R%d\n", LUAU_INSN_C(insn))
 	elseif op == LuauOpcode.LOP_AND then
 		formatAppend(result, "AND R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
@@ -2547,8 +2548,8 @@ function prototype.dumpInstruction(self: BytecodeBuilder, codeIndex: number, res
 			"FORGLOOP R%d L%d %d%s\n",
 			LUAU_INSN_A(insn),
 			targetLabel,
-			self.insns:get(code),
-			if self.insns:get(code) < 0 then " [inext]" else ""
+			uint8_t(self.insns:get(code)),
+			if int(self.insns:get(code)) < 0 then " [inext]" else ""
 		)
 		code += 1
 	elseif op == LuauOpcode.LOP_FORGPREP_INEXT then

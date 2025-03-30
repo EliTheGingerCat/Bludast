@@ -17,11 +17,11 @@ local Ws = 0
 local Ls = 0
 
 local function reportError(message: string): ()
-	stdio.ewrite(stdio.color("red") .. "Error: " .. message .. stdio.color("reset"))
+	stdio.ewrite(stdio.color("red") .. "Error: " .. message .. stdio.color("reset") .. "\n")
 end
 
 local function reportFatalError(message: string): ()
-	stdio.ewrite(stdio.color("red") .. "Fatal error: " .. message .. stdio.color("reset"))
+	stdio.ewrite(stdio.color("red") .. "Fatal error: " .. message .. stdio.color("reset") .. "\n")
 end
 
 local function getRequirePath(pathFs: string): string

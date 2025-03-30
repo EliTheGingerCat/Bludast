@@ -100,6 +100,7 @@ local function foldUnary(result: Constant, op: number, arg: Constant): ()
 			result.type = Constant.Type.Type_Boolean
 			result.valueBoolean = not arg:isTruthful()
 		end
+		return
 	end
 
 	if op == AstExprUnary.Op.Minus then
@@ -107,6 +108,7 @@ local function foldUnary(result: Constant, op: number, arg: Constant): ()
 			result.type = Constant.Type.Type_Number
 			result.valueNumber = -arg.valueNumber
 		end
+		return
 	end
 
 	if op == AstExprUnary.Op.Len then
@@ -114,6 +116,7 @@ local function foldUnary(result: Constant, op: number, arg: Constant): ()
 			result.type = Constant.Type.Type_Number
 			result.valueNumber = arg.stringLength
 		end
+		return
 	end
 
 	error("Unexpected unary operation")
@@ -212,7 +215,7 @@ local function foldBinary(result: Constant, op: number, la: Constant, ra: Consta
 		return
 	end
 
-	if op == AstExprBinary.Op.CompareLt then
+	if op == AstExprBinary.Op.CompareLe then
 		if la.type == Constant.Type.Type_Number and ra.type == Constant.Type.Type_Number then
 			result.type = Constant.Type.Type_Boolean
 			result.valueBoolean = la.valueNumber <= ra.valueNumber
@@ -228,7 +231,7 @@ local function foldBinary(result: Constant, op: number, la: Constant, ra: Consta
 		return
 	end
 
-	if op == AstExprBinary.Op.CompareGt then
+	if op == AstExprBinary.Op.CompareGe then
 		if la.type == Constant.Type.Type_Number and ra.type == Constant.Type.Type_Number then
 			result.type = Constant.Type.Type_Boolean
 			result.valueBoolean = la.valueNumber >= ra.valueNumber
@@ -245,7 +248,7 @@ local function foldBinary(result: Constant, op: number, la: Constant, ra: Consta
 
 	if op == AstExprBinary.Op.Or then
 		if la.type ~= Constant.Type.Type_Unknown then
-			return if la:isTruthful() then la else la
+			return if la:isTruthful() then la else ra
 		end
 		return
 	end
