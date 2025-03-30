@@ -11,6 +11,7 @@ A manual translation of https://github.com/luau-lang/luau/ into Luau. That is, w
 - [Deviations](#deviations)
 - [Progress](#progress)
 - [Contributions](#contributions)
+- [License](#license)
 
 ## Name
 
@@ -65,3 +66,7 @@ Use `moonwave dev` to preview the site.
 **Testing**
 
 Run `lune run test` and ensure there are no errors before making a pull request.
+
+## License
+
+This repository has both the Lua and Luau licenses because although this project is written in a different language and has some creative choices, it is still very similar to the original Luau repository, so all licenses from there were added here.
