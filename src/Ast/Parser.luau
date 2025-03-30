@@ -3666,7 +3666,7 @@ function prototype.incrementRecursionCounter(self: Parser, context: string): ()
 	self.recursionCounter += 1
 
 	if self.recursionCounter > FastVariables.LuauRecursionLimit then
-		ParseError.raise(self.lexer:current().location, "Exceeded allowed recursion depth; simplify your %s to make the code compile", context)
+		ParseError.raise(self.lexer:current().location, string.format("Exceeded allowed recursion depth; simplify your %s to make the code compile", context))
 	end
 end
 
@@ -3692,7 +3692,7 @@ function prototype.report(self: Parser, location: Location, format: string, ...:
 	self.parseErrors:emplace_back(ParseError.new(location, message))
 
 	if self.parseErrors:size() >= FastVariables.LuauParseErrorLimit then
-		ParseError.raise(location, "Reached error limit (%d)", FastVariables.LuauParseErrorLimit)
+		ParseError.raise(location, string.format("Reached error limit (%d)", FastVariables.LuauParseErrorLimit))
 	end
 end
 

@@ -47,10 +47,6 @@ end
 
 --[=[
 	@within CompileError
-	@function raise
-	@param location Location
-	@param format string
-	@param ... any
 	@since v0.1.0
 ]=]
 function CompileError.raise(location: Location, format: string, ...: any): ()

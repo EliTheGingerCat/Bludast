@@ -47,22 +47,14 @@ end
 
 --[=[
 	@within ParseError
-	@function raise
-	@param location Location
-	@param format string
-	@param ... any
 	@since v0.1.0
 ]=]
-function ParseError.raise(location: Location, format: string, ...: any): never
-	local message = format:format(...)
-
+function ParseError.raise(location: Location, message: string): never
 	error(ParseError.new(location, message))
 end
 
 --[=[
 	@within ParseError
-	@method getLocation
-	@return Location
 	@since v0.1.0
 ]=]
 function prototype.getLocation(self: ParseError): Location
@@ -71,8 +63,6 @@ end
 
 --[=[
 	@within ParseError
-	@method getMessage
-	@return string
 	@since v0.1.0
 ]=]
 function prototype.getMessage(self: ParseError): string
@@ -81,7 +71,8 @@ end
 
 --[=[
 	@within ParseError
-	@method what
+	@function what
+	@param self ParseError
 	@return string
 	@since v0.1.0
 
