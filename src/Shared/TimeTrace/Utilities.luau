@@ -1,9 +1,12 @@
-local fs = require("@lune/fs")
-
+local fs
 local Event = require("./Event")
 local GlobalContext = require("./GlobalContext")
 local Token = require("./Token")
 local Vector = require("@Polyfill/Vector")
+
+if _VERSION:sub(1, 4) == "Lune" then
+	fs = (require)("@lune/fs")
+end
 
 type Event = Event.Event
 type GlobalContext = GlobalContext.GlobalContext

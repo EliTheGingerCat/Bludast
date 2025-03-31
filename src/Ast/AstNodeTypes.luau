@@ -568,4 +568,4 @@ export type AstTypeUnion = AstType & {
 	types: {AstType}
 }
 
-return nil
+return {}

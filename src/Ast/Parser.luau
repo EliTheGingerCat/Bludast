@@ -1600,7 +1600,6 @@ function prototype.parseFunctionBody(self: Parser, hasself: boolean, matchFuncti
 	if localName then
 		funLocal = self:pushLocal(Binding.new(localName, nil))
 	end
-	assert(funLocal) -- Eli: NEW_SOLVER
 
 	local localsBegin = self:saveLocals()
 

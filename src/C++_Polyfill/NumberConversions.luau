@@ -85,7 +85,6 @@ end
 --[=[
 	@within NumberConversions
 	@since v0.1.0
-	LOL
 ]=]
 function NumberConversions.uint16_t(n: number): number
 	return truncateDecimal(n) % MAX_16

@@ -1,13 +1,16 @@
 --> Runs tests to ensure the code works as it should. Can run a specific test with `[path to file] [test name]`.
 
-local fs = require("@lune/fs")
-local process = require("@lune/process")
-local stdio = require("@lune/stdio")
+local args: {string} = table.pack(...)
 
-local requestedFile: string? = process.args[1]
-local requestedTest: string? = process.args[2]
+local requestedFile: string? = args[1]
+local requestedTest: string? = args[2]
 
-local EXTENSION_TEST = ".test.luau"
+local TEST_FILES = {
+	"Compiler",
+	"CostModel",
+	"Lexer",
+	"Parser"
+}
 
 type testData = {
 	[string]: () -> ()
@@ -17,20 +20,16 @@ local Ws = 0
 local Ls = 0
 
 local function reportError(message: string): ()
-	stdio.ewrite(stdio.color("red") .. "Error: " .. message .. stdio.color("reset") .. "\n")
+	print("\27[31mError: " .. message .. "\27[0m")
 end
 
 local function reportFatalError(message: string): ()
-	stdio.ewrite(stdio.color("red") .. "Fatal error: " .. message .. stdio.color("reset") .. "\n")
-end
-
-local function getRequirePath(pathFs: string): string
-	return "../" .. pathFs
+	print("\27[31mFatal error: " .. message .. "\27[0m")
 end
 
 local function getTestData(path: string): testData?
-	local pathRequire = getRequirePath(path)
-	local data = require(pathRequire) :: testData
+	print(path)
+	local data = require(path .. ".test") :: testData
 
 	if type(data) == "table" then
 		return data
@@ -61,28 +60,6 @@ local function testFile(path: string): ()
 	end
 end
 
-local testAny
-
-local function testDirectory(pathDirectory: string): ()
-	for _, name in fs.readDir(pathDirectory) do
-		local pathMember = pathDirectory .. "/" .. name
-		testAny(pathMember)
-	end
-end
-
-testAny = function(path: string): ()
-	if fs.isDir(path) then
-		testDirectory(path)
-	elseif path:sub(-#EXTENSION_TEST) == EXTENSION_TEST then
-		testFile(path)
-	end
-end
-
-if not fs.isDir("./tests") then
-	reportFatalError('"tests" directory was not found.')
-	return
-end
-
 local pathStart = "./tests"
 
 if requestedFile then
@@ -93,13 +70,9 @@ if requestedFile then
 
 	pathStart ..= "/" .. requestedFile
 
-	local metadata = fs.metadata(pathStart)
-	if not metadata.exists then
-		reportFatalError(`Could not find file "{pathStart}".`)
+	if table.find(TEST_FILES, requestedFile) == nil then
+		reportFatalError(`Could not find file "{requestedFile .. ".test.luau"}".`)
 		return
-	end
-	if metadata.kind ~= "file" then
-		reportFatalError(`"{pathStart}" is not a file.`)
 	end
 
 	local data = getTestData(pathStart)
@@ -118,7 +91,9 @@ if requestedFile then
 	return
 end
 
-testAny(pathStart)
+for _, file in TEST_FILES do
+	testFile(pathStart .. "/" .. file)
+end
 
 if Ws == 0 and Ls == 0 then
 	print("Bro did not write any tests... 😾")

@@ -53,11 +53,9 @@ Contributions are only necessary for maintenance or performance.
 
 **Dependencies**
 
-Install [Rokit](https://github.com/rojo-rbx/rokit), then run `rokit install`.
+Install [Luau](https://github.com/luau-lang/luau/releases) or any compatible Luau runtime.
 
 Install [Node.js and Node Package Manager](https://nodejs.org/en/download), then run `npm install`.
-
-Run `lune list` to see available scripts.
 
 **Moonwave**
 
@@ -65,7 +63,7 @@ Use `moonwave dev` to preview the site.
 
 **Testing**
 
-Run `lune run test` and ensure there are no errors before making a pull request.
+Run `luau test.luau` (or the appropriate command for your runtime) and ensure there are no errors before making a pull request.
 
 ## License
 
