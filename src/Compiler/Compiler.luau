@@ -564,7 +564,7 @@ export type Compiler = typeof(setmetatable({} :: {
 	locstants: {[AstLocal]: Constant},
 	tableShapes: {[AstExprTable]: TableShape},
 	builtins: {[AstExprCall]: number},
-	userdataTypes: {[AstName]: number},
+	userdataTypes: {[string]: number},
 	functionTypes: {[AstExprFunction]: string},
 	localTypes: {[AstLocal]: number},
 	exprTypes: {[AstExpr]: number},
@@ -582,13 +582,13 @@ export type Compiler = typeof(setmetatable({} :: {
 	getfenvUsed: boolean,
 	setfenvUsed: boolean,
 
-	localStack: Vector<AstLocal>,
-	upvals: Vector<AstLocal>,
-	loopJumps: Vector<LoopJump>,
-	loops: Vector<Loop>,
-	inlineFrames: Vector<InlineFrame>,
-	captures: Vector<Capture>,
-	interpStrings: Vector<string>
+	localStack: {AstLocal},
+	upvals: {AstLocal},
+	loopJumps: {LoopJump},
+	loops: {Loop},
+	inlineFrames: {InlineFrame},
+	captures: {Capture},
+	interpStrings: {string}
 }, metatable))
 
 --[=[
@@ -622,18 +622,14 @@ function Compiler.new(bytecode: BytecodeBuilder, options: CompileOptions): Compi
 		hasLoops = false,
 		getfenvUsed = false,
 		setfenvUsed = false,
-		localStack = Vector.new(),
-		upvals = Vector.new(),
-		loopJumps = Vector.new(),
-		loops = Vector.new(),
-		inlineFrames = Vector.new(),
-		captures = Vector.new(),
-		interpStrings = Vector.new()
+		localStack = table.create(16),
+		upvals = table.create(16),
+		loopJumps = {},
+		loops = {},
+		inlineFrames = {},
+		captures = {},
+		interpStrings = {},
 	}, metatable)
-
-	-- preallocate some buffers that are very likely to grow anyway; this works around std::vector's inefficient growth policy for small arrays
-	self.localStack:reserve(16)
-	self.upvals:reserve(16)
 	
 	return self
 end
@@ -655,13 +651,13 @@ end
 	@since v0.1.0
 ]=]
 function prototype.getUpval(self: Compiler, astLocal: AstLocal): number
-	for uid = 1, self.upvals:size() do
-		if self.upvals:get(uid) == astLocal then
+	for uid = 1, #self.upvals do
+		if self.upvals[uid] == astLocal then
 			return uid - 1
 		end
 	end
 
-	if self.upvals:size() >= kMaxUpvalueCount then
+	if #self.upvals >= kMaxUpvalueCount then
 		CompileError.raise(
 			astLocal.location,
 			"Out of upvalue registers when trying to allocate %s: exceeded limit %d",
@@ -680,9 +676,9 @@ function prototype.getUpval(self: Compiler, astLocal: AstLocal): number
 		self.locals[astLocal].captured = true
 	end
 
-	self.upvals:push_back(astLocal)
+	table.insert(self.upvals, astLocal)
 
-	return self.upvals:size() - 1
+	return #self.upvals - 1
 end
 
 --[=[
@@ -763,7 +759,7 @@ function prototype.compileFunction(self: Compiler, func: AstExprFunction, protof
 	end
 
 	assert(not self.functions[func])
-	assert(self.regTop == 0 and self.stackSize == 0 and self.localStack:empty() and self.upvals:empty())
+	assert(self.regTop == 0 and self.stackSize == 0 and #self.localStack == 0 and #self.upvals == 0)
 
 	local rs = RegScope.new(self)
 
@@ -795,7 +791,7 @@ function prototype.compileFunction(self: Compiler, func: AstExprFunction, protof
 	end
 
 	if FastVariables.LuauCompileTypeInfo then
-		self.argCount = self.localStack:size()
+		self.argCount = #self.localStack
 	end
 
 	local stat = func.body
@@ -824,14 +820,14 @@ function prototype.compileFunction(self: Compiler, func: AstExprFunction, protof
 		self.bytecode:setDebugFunctionName(sref(func.debugname))
 	end
 	
-	if self.options.debugLevel >= 2 and not self.upvals:empty() then
-		for _, l in self.upvals:data() do
+	if self.options.debugLevel >= 2 and #self.upvals ~= 0 then
+		for _, l in self.upvals do
 			self.bytecode:pushDebugUpval(sref(l.name))
 		end
 	end
 
 	if FastVariables.LuauCompileTypeInfo and self.options.typeInfoLevel >= 1 then
-		for _, l in self.upvals:data() do
+		for _, l in self.upvals do
 			local ty = LuauBytecodeType.LBC_TYPE_ANY
 
 			local recordedTy = self.localTypes[l :: AstLocal]
@@ -872,7 +868,7 @@ function prototype.compileFunction(self: Compiler, func: AstExprFunction, protof
 		protoflags = bit32.bor(protoflags, LuauProtoFlag.LPF_NATIVE_FUNCTION)
 	end
 
-	self.bytecode:endFunction(uint8_t(self.stackSize), uint8_t(self.upvals:size()), protoflags)
+	self.bytecode:endFunction(uint8_t(self.stackSize), uint8_t(#self.upvals), protoflags)
 
 	local f = self.functions[func]
 	if f == nil then
@@ -881,7 +877,7 @@ function prototype.compileFunction(self: Compiler, func: AstExprFunction, protof
 	end
 	f.id = fid
 	local upvals: Vector<AstLocal> = Vector.new()
-	for _, upval in self.upvals:data() do
+	for _, upval in self.upvals do
 		upvals:push_back(upval :: AstLocal)
 	end
 	f.upvals = upvals
@@ -900,7 +896,7 @@ function prototype.compileFunction(self: Compiler, func: AstExprFunction, protof
 		end
 	end
 
-	self.upvals:clear()
+	table.clear(self.upvals)
 	self.stackSize = 0
 
 	if FastVariables.LuauCompileTypeInfo then
@@ -1051,7 +1047,7 @@ function prototype.compileExprSelectVararg(
 	local argreg: number
 
 	local reg = self:getExprLocalReg(arg)
-	if reg and reg >= 0 then
+	if reg >= 0 then
 		argreg = uint8_t(reg)
 	else
 		argreg = uint8_t(regs + 1)
@@ -1064,7 +1060,7 @@ function prototype.compileExprSelectVararg(
 
 	-- note, these instructions are normally not executed and are used as a fallback for FASTCALL
 	-- we can't use TempTop variant here because we need to make sure the arguments we already computed aren't overwritten
-	self:compileExprTemp(expr.func, reg)
+	self:compileExprTemp(expr.func, regs)
 
 	if argreg ~= regs + 1 then
 		self.bytecode:emitABC(LuauOpcode.LOP_MOVE, uint8_t(regs + 1), argreg, 0)
@@ -1188,7 +1184,7 @@ function prototype.tryCompileInlinedCall(
 	thresholdBase: number,
 	thresholdMaxBoost: number,
 	depthLimit: number
-): boolean
+): boolean	
 	local fi = self.functions[func]
 	assert(fi)
 
@@ -1199,13 +1195,13 @@ function prototype.tryCompileInlinedCall(
 	end
 
 	-- we should ideally aggregate the costs during recursive inlining, but for now simply limit the depth
-	if self.inlineFrames:size() >= depthLimit then
+	if #self.inlineFrames >= depthLimit then
 		self.bytecode:addDebugRemark("inlining failed: too many inlined frames")
 		return false
 	end
 	
 	-- compiling recursive inlining is difficult because we share constant/variable state but need to bind variables to different registers
-	for _, frame in self.inlineFrames:data() do
+	for _, frame in self.inlineFrames do
 		if frame.func == func then
 			self.bytecode:addDebugRemark("inlining failed: can't inline recursive calls")
 			return false
@@ -1247,7 +1243,7 @@ function prototype.tryCompileInlinedCall(
 	end
 
 	self.bytecode:addDebugRemark(
-		("inlining succeeded (cost %d, profit %.2fx, depth %d)"):format(inlinedCost, inlineProfit / 100, self.inlineFrames:size())
+		("inlining succeeded (cost %d, profit %.2fx, depth %d)"):format(inlinedCost, inlineProfit / 100, #self.inlineFrames)
 	)
 	
 	self:compileInlinedCall(expr, func, target, targetCount)
@@ -1262,7 +1258,7 @@ end
 function prototype.compileInlinedCall(self: Compiler, expr: AstExprCall, func: AstExprFunction, target: number, targetCount: number): ()
 	local rs = RegScope.new(self)
 
-	local oldLocals = self.localStack:size()
+	local oldLocals = #self.localStack
 
 	local args: Vector<InlineArg> = Vector.new()
 	args:reserve(#func.args)
@@ -1285,25 +1281,24 @@ function prototype.compileInlinedCall(self: Compiler, expr: AstExprCall, func: A
 			local exprCall = arg:as(AstExprCall)
 			local exprVarargs = arg:as(AstExprVarargs)
 			if exprCall then
-				self:compileExprCall(expr, reg, tail, true)
+				self:compileExprCall(exprCall, reg, tail, true)
 			elseif exprVarargs then
-				self:compileExprVarargs(expr, reg, tail)
+				self:compileExprVarargs(exprVarargs, reg, tail)
 			else
 				error("Unexpected expression type")			
 			end
 
 			for j = i, #func.args do
 				if FastVariables.LuauCompileTypeInfo then
-					args:push_back(InlineArg.new(func.args[j], uint8_t(reg + (j - i)), Constant.new(Constant.Type.Type_Unknown), allocpc))
+					args:push_back(InlineArg.new(func.args[j], uint8_t(reg + ((j - 1) - (i - 1))), Constant.new(Constant.Type.Type_Unknown), allocpc))
 				else
-					args:push_back(InlineArg.new(func.args[j], uint8_t(reg + (j - i))))
+					args:push_back(InlineArg.new(func.args[j], uint8_t(reg + ((j - 1) - (i - 1)))))
 				end
 			end
 
 			-- all remaining function arguments have been allocated and assigned to
 			break
 		elseif vv and vv.written then
-			assert(arg)
 			-- if the argument is mutated, we need to allocate a fresh register even if it's a constant
 			local reg = self:allocReg(arg, 1)
 			local allocpc = if FastVariables.LuauCompileTypeInfo then self.bytecode:getDebugPC() else kDefaultAllocPc
@@ -1321,7 +1316,7 @@ function prototype.compileInlinedCall(self: Compiler, expr: AstExprCall, func: A
 			end
 		elseif arg == nil then
 			-- since the argument is not mutated, we can simply fold the value into the expressions that need it
-			args:push_back(InlineArg.new(var, kInvalidReg, Constant.new(Constant.Type.Type_Unknown)))
+			args:push_back(InlineArg.new(var, kInvalidReg, Constant.new(Constant.Type.Type_Nil)))
 		elseif cv and cv.type ~= Constant.Type.Type_Unknown then
 			-- since the argument is not mutated, we can simply fold the value into the expressions that need it
 			args:push_back(InlineArg.new(var, kInvalidReg, cv))
@@ -1349,8 +1344,8 @@ function prototype.compileInlinedCall(self: Compiler, expr: AstExprCall, func: A
 	end
 
 	-- evaluate extra expressions for side effects
-	for i = #func.args + 1, #expr.args do
-		self:compileExprSide(expr.args[i])
+	for i = #func.args, #expr.args - 1 do
+		self:compileExprSide(expr.args[i + 1])
 	end
 
 	-- apply all evaluated arguments to the compiler state
@@ -1368,7 +1363,7 @@ function prototype.compileInlinedCall(self: Compiler, expr: AstExprCall, func: A
 	end
 
 	-- the inline frame will be used to compile return statements as well as to reject recursive inlining attempts
-	self.inlineFrames:push_back(InlineFrame.new(func, oldLocals, target, targetCount))
+	table.insert(self.inlineFrames, InlineFrame.new(func, oldLocals, target, targetCount))
 
 	-- fold constant values updated above into expressions in the function body
 	foldConstants(self.constants, self.variables, self.locstants, self.builtinsFold, self.builtinsFoldMathK, func.body)
@@ -1400,9 +1395,9 @@ function prototype.compileInlinedCall(self: Compiler, expr: AstExprCall, func: A
 	self:popLocals(oldLocals)
 
 	local returnLabel = self.bytecode:emitLabel()
-	self:patchJumps(expr, self.inlineFrames:back().returnJumps, returnLabel)
+	self:patchJumps(expr, self.inlineFrames[#self.inlineFrames].returnJumps, returnLabel)
 
-	self.inlineFrames:pop_back()
+	table.remove(self.inlineFrames, #self.inlineFrames)
 
 	-- clean up constant state for future inlining attempts
 	for _, astLocal in func.args do
@@ -1700,8 +1695,7 @@ function prototype.compileExprFunction(self: Compiler, expr: AstExprFunction, ta
 	end
 
 	-- we use a scratch vector to reduce allocations; this is safe since compileExprFunction is not reentrant
-	self.captures:clear()
-	self.captures:reserve(f.upvals:size())
+	table.clear(self.captures)
 
 	for _, uv in f.upvals:data() do
 		assert(uv.functionDepth < expr.functionDepth)
@@ -1713,13 +1707,13 @@ function prototype.compileExprFunction(self: Compiler, expr: AstExprFunction, ta
 			local ul = self.variables[uv :: AstLocal]
 			local immutable = ul == nil or not ul.written
 
-			self.captures:push_back(Capture.new(if immutable then LuauCaptureType.LCT_VAL else LuauCaptureType.LCT_REF, uint8_t(reg)))
+			table.insert(self.captures, Capture.new(if immutable then LuauCaptureType.LCT_VAL else LuauCaptureType.LCT_REF, uint8_t(reg)))
 		elseif uc and uc.type ~= Constant.Type.Type_Unknown then
 			-- inlining can result in an upvalue capture of a constant, in which case we can't capture without a temporary register
 			local reg = self:allocReg(expr, 1)
 			self:compileExprConstant(expr, uc, reg)
 
-			self.captures:push_back(Capture.new(LuauCaptureType.LCT_VAL, reg))
+			table.insert(self.captures, Capture.new(LuauCaptureType.LCT_VAL, reg))
 		else
 			assert(uv.functionDepth < expr.functionDepth - 1)
 
@@ -1727,7 +1721,7 @@ function prototype.compileExprFunction(self: Compiler, expr: AstExprFunction, ta
 			-- note: this will add uv to the current upvalue list if necessary
 			local uid = self:getUpval(uv :: AstLocal)
 
-			self.captures:push_back(Capture.new(LuauCaptureType.LCT_UPVAL, uid))
+			table.insert(self.captures, Capture.new(LuauCaptureType.LCT_UPVAL, uid))
 		end
 	end
 
@@ -1745,7 +1739,7 @@ function prototype.compileExprFunction(self: Compiler, expr: AstExprFunction, ta
 	end
 	
 	if shared < 0 then
-		self.bytecode:addDebugRemark(("allocation: closure with %d upvalues"):format(self.captures:size()))
+		self.bytecode:addDebugRemark(("allocation: closure with %d upvalues"):format(#self.captures))
 	end
 
 	if shared >= 0 then
@@ -1754,7 +1748,7 @@ function prototype.compileExprFunction(self: Compiler, expr: AstExprFunction, ta
 		self.bytecode:emitAD(LuauOpcode.LOP_NEWCLOSURE, target, pid)
 	end
 
-	for _, c in self.captures:data() do
+	for _, c in self.captures do
 		self.bytecode:emitABC(LuauOpcode.LOP_CAPTURE, uint8_t(c.type), c.data, 0)
 	end
 
@@ -1885,7 +1879,7 @@ end
 	@since v0.1.0
 ]=]
 function prototype.compileCompareJump(self: Compiler, expr: AstExprBinary, not_: boolean?): number
-	local not_ = not_ or false
+	local not_ = if not_ ~= nil then not_ else false
 
 	local rs = RegScope.new(self)
 
@@ -2035,7 +2029,7 @@ function prototype.compileConditionValue(self: Compiler, node: AstExpr, target: 
 	if cv and cv.type ~= Constant.Type.Type_Unknown then
 		-- note that we only need to compute the value if it's truthy; otherwise we cal fall through
 		if cv:isTruthful() == onlyTruth then
-			if target and target ~= 0 then
+			if target then
 				self:compileExprTemp(node, target)
 			end
 			
@@ -2087,7 +2081,7 @@ function prototype.compileConditionValue(self: Compiler, node: AstExpr, target: 
 			or expr.op == AstExprBinary.Op.CompareGt
 			or expr.op == AstExprBinary.Op.CompareGe
 		then
-			if target and target ~= 0 then
+			if target then
 				-- since target is a temp register, we'll initialize it to 1, and then jump if the comparison is true
 				-- if the comparison is false, we'll fallthrough and target will still be 1 but target has unspecified value for falsy results
 				-- when we only care about falsy values instead of truthy values, the process is the same but with flipped conditionals
@@ -2105,7 +2099,7 @@ function prototype.compileConditionValue(self: Compiler, node: AstExpr, target: 
 	if expr then
 		-- if we *do* need to compute the target, we'd have to inject "not" ops on every return path
 		-- this is possible but cumbersome; so for now we only optimize not expression when we *don't* need the value
-		if not (target and target ~= 0) and expr.op == AstExprUnary.Op.Not then
+		if not target and expr.op == AstExprUnary.Op.Not then
 			self:compileConditionValue(expr.expr, target, skipJump, not onlyTruth)
 			return
 		end
@@ -2487,7 +2481,7 @@ function prototype.compileExprInterpString(self: Compiler, expr: AstExprInterpSt
 	formatStringPtr = table.concat(formatString)
 
 	local formatStringArray = formatStringPtr
-	self.interpStrings:emplace_back(formatStringPtr) -- invalidates formatStringPtr, but keeps formatStringArray intact
+	table.insert(self.interpStrings, formatStringPtr) -- invalidates formatStringPtr, but keeps formatStringArray intact
 
 	local formatStringIndex = self.bytecode:addConstantString(sref(formatStringArray))
 	if formatStringIndex < 0 then
@@ -2878,7 +2872,7 @@ function prototype.compileExprConstant(self: Compiler, node: AstExpr, cv: Consta
 	elseif cv.type == Constant.Type.Type_Number then
 		local d = cv.valueNumber
 
-		if d >= -32768 and d <= 32767 and int16_t(d) == d and not (d == 0 and math.sign(d) == -1) then
+		if d >= -32768 and d <= 32767 and int16_t(d) == d and not (d == 0 and 1 / d == -math.huge) then
 			-- short number encoding: doesn't require a table entry lookup
 			self.bytecode:emitAD(LuauOpcode.LOP_LOADN, target, int16_t(d))
 		else
@@ -3359,13 +3353,13 @@ function prototype.compileStatIf(self: Compiler, stat: AstStatIf): ()
 	end
 
 	-- Optimization: body is a "break" statement with no "else" => we can directly break out of the loop in "then" case
-	if stat.elsebody == nil and self:isStatBreak(stat.thenbody) and not self:areLocalsCaptured(self.loops:back().localOffset) then
+	if stat.elsebody == nil and self:isStatBreak(stat.thenbody) and not self:areLocalsCaptured(self.loops[#self.loops].localOffset) then
 		-- fallthrough = continue with the loop as usual
 		local elseJump: Vector<number> = Vector.new()
 		self:compileConditionValue(stat.condition, nil, elseJump, true)
 
 		for _, jump in elseJump:data() do
-			self.loopJumps:push_back(LoopJump.new(LoopJump.Type.Break, jump))
+			table.insert(self.loopJumps, LoopJump.new(LoopJump.Type.Break, jump))
 		end
 		return
 	end
@@ -3373,17 +3367,17 @@ function prototype.compileStatIf(self: Compiler, stat: AstStatIf): ()
 	local continueStatement = self:extractStatContinue(stat.thenbody)
 
 	-- Optimization: body is a "continue" statement with no "else" => we can directly continue in "then" case
-	if stat.elsebody == nil and continueStatement ~= nil and not self:areLocalsCaptured(self.loops:back().localOffsetContinue) then
+	if stat.elsebody == nil and continueStatement ~= nil and not self:areLocalsCaptured(self.loops[#self.loops].localOffsetContinue) then
 		-- track continue statement for repeat..until validation (validateContinueUntil)
-		if self.loops:back().continueUsed == nil then
-			self.loops:back().continueUsed = continueStatement
+		if self.loops[#self.loops].continueUsed == nil then
+			self.loops[#self.loops].continueUsed = continueStatement
 		end
 
 		local elseJump: Vector<number> = Vector.new()
 		self:compileConditionValue(stat.condition, nil, elseJump, true)
 
 		for _, jump in elseJump:data() do
-			self.loopJumps:push_back(LoopJump.new(LoopJump.Type.Continue, jump))
+			table.insert(self.loopJumps, LoopJump.new(LoopJump.Type.Continue, jump))
 		end
 		return
 	end
@@ -3434,10 +3428,10 @@ function prototype.compileStatWhile(self: Compiler, stat: AstStatWhile): ()
 		return
 	end
 
-	local oldJumps = self.loopJumps:size()
-	local oldLocals = self.localStack:size()
+	local oldJumps = #self.loopJumps
+	local oldLocals = #self.localStack
 
-	self.loops:push_back(Loop.new(oldLocals, oldLocals, nil))
+	table.insert(self.loops, Loop.new(oldLocals, oldLocals, nil))
 	self.hasLoops = true
 
 	local loopLabel = self.bytecode:emitLabel()
@@ -3463,9 +3457,9 @@ function prototype.compileStatWhile(self: Compiler, stat: AstStatWhile): ()
 	self:patchJumps(stat, elseJump, endLabel)
 
 	self:patchLoopJumps(stat, oldJumps, endLabel, contLabel)
-	self.loopJumps:resize(oldJumps)
+	self.loopJumps = table.move(self.loopJumps, 1, oldJumps, 1, {})
 
-	self.loops:pop_back()
+	table.remove(self.loops[#self.loops])
 end
 
 --[=[
@@ -3474,10 +3468,10 @@ end
 	@since v0.1.0
 ]=]
 function prototype.compileStatRepeat(self: Compiler, stat: AstStatRepeat): ()
-	local oldJumps = self.loopJumps:size()
-	local oldLocals = self.localStack:size()
+	local oldJumps = #self.loopJumps
+	local oldLocals = #self.localStack
 	
-	self.loops:push_back(Loop.new(oldLocals, oldLocals, nil))
+	table.insert(self.loops, Loop.new(oldLocals, oldLocals, nil))
 	self.hasLoops = true
 
 	local loopLabel = self.bytecode:emitLabel()
@@ -3498,14 +3492,14 @@ function prototype.compileStatRepeat(self: Compiler, stat: AstStatRepeat): ()
 		-- (but it must still close upvalues defined in more nested blocks)
 		-- this is because the upvalues defined inside the loop body may be captured by a closure defined in the until
 		-- expression that continue will jump to.
-		self.loops:back().localOffsetContinue = self.localStack:size()
+		self.loops[#self.loops].localOffsetContinue = #self.localStack
 
 		-- if continue was called from this statement, any local defined after this in the loop body should not be accessed by until condition
 		-- it is sufficient to check this condition once, as if this holds for the first continue, it must hold for all subsequent continues.
-		if self.loops:back().continueUsed and not continueValidated then
-			self:validateContinueUntil(assert(self.loops:back().continueUsed), stat.condition, body, i + 1)
+		if self.loops[#self.loops].continueUsed and not continueValidated then
+			self:validateContinueUntil(assert(self.loops[#self.loops].continueUsed), stat.condition, body, i + 1)
 			continueValidated = true
-			conditionLocals = self.localStack:size()
+			conditionLocals = #self.localStack
 		end
 	end
 
@@ -3559,9 +3553,9 @@ function prototype.compileStatRepeat(self: Compiler, stat: AstStatRepeat): ()
 	self:popLocals(oldLocals)
 
 	self:patchLoopJumps(stat, oldJumps, endLabel, contLabel)
-	self.loopJumps:resize(oldJumps)
+	self.loopJumps = table.move(self.loopJumps, 1, oldJumps, 1, {})
 
-	self.loops:pop_back()
+	table.remove(self.loops, #self.loops)
 
 	rs:destroy()
 end
@@ -3574,7 +3568,7 @@ end
 function prototype.compileInlineReturn(self: Compiler, stat: AstStatReturn, fallthrough: boolean): ()
 	self:setDebugLine(stat) -- normally compileStat sets up line info, but compileInlineReturn can be called directly
 
-	local frame = self.inlineFrames:back()
+	local frame = self.inlineFrames[#self.inlineFrames]
 
 	self:compileExprListTemp(stat.list, frame.target, frame.targetCount, false)
 
@@ -3584,7 +3578,7 @@ function prototype.compileInlineReturn(self: Compiler, stat: AstStatReturn, fall
 		local jumpLabel = self.bytecode:emitLabel()
 		self.bytecode:emitAD(LuauOpcode.LOP_JUMP, 0, 0)
 
-		self.inlineFrames:back().returnJumps:push_back(jumpLabel)
+		self.inlineFrames[#self.inlineFrames].returnJumps:push_back(jumpLabel)
 	end
 end
 
@@ -3766,30 +3760,31 @@ end
 function prototype.compileUnrolledFor(self: Compiler, stat: AstStatFor, tripCount: number, from: number, step: number): ()
 	local var = stat.var
 
-	local oldLocals = self.localStack:size()
-	local oldJumps = self.loopJumps:size()
+	local oldLocals = #self.localStack
+	local oldJumps = #self.loopJumps
 
-	self.loops:push_back(Loop.new(oldLocals, oldLocals, nil))
+	table.insert(self.loops, Loop.new(oldLocals, oldLocals, nil))
+
+	if not self.locstants[var] then
+		self.locstants[var] = Constant.new()
+	end
 
 	for iv = 0, tripCount - 1 do
 		-- we need to re-fold constants in the loop body with the new value; this reuses computed constant values elsewhere in the tree
-		if not self.locstants[var] then
-			self.locstants[var] = Constant.new()
-		end
 		self.locstants[var].type = Constant.Type.Type_Number
 		self.locstants[var].valueNumber = from + iv * step
 
 		foldConstants(self.constants, self.variables, self.locstants, self.builtinsFold, self.builtinsFoldMathK, stat)
 
-		local iterJumps = self.loopJumps:size()
+		local iterJumps = #self.loopJumps
 
 		self:compileStat(stat.body)
 
 		-- all continue jumps need to go to the next iteration
 		local contLabel = self.bytecode:emitLabel()
-		for i = iterJumps + 1, self.loopJumps:size() do
-			if self.loopJumps:get(i).type == LoopJump.Type.Continue then
-				self:patchJump(stat, self.loopJumps:get(i).label, contLabel)
+		for i = iterJumps + 1, #self.loopJumps do
+			if self.loopJumps[i].type == LoopJump.Type.Continue then
+				self:patchJump(stat, self.loopJumps[i].label, contLabel)
 			end
 		end
 	end
@@ -3797,15 +3792,15 @@ function prototype.compileUnrolledFor(self: Compiler, stat: AstStatFor, tripCoun
 	-- all break jumps need to go past the loop
 	local endLabel = self.bytecode:emitLabel()
 
-	for i = oldJumps + 1, self.loopJumps:size() do
-		if self.loopJumps:get(i).type == LoopJump.Type.Break then
-			self:patchJump(stat, self.loopJumps:get(i).label, endLabel)
+	for i = oldJumps + 1, #self.loopJumps do
+		if self.loopJumps[i].type == LoopJump.Type.Break then
+			self:patchJump(stat, self.loopJumps[i].label, endLabel)
 		end
 	end
 
-	self.loopJumps:resize(oldJumps)
+	self.loopJumps = table.move(self.loopJumps, 1, oldJumps, 1, {})
 
-	self.loops:pop_back()
+	table.remove(self.loops, #self.loops)
 
 	-- clean up fold state in case we need to recompile - normally we compile the loop body once, but due to inlining we may need to do it again
 	self.locstants[var].type = Constant.Type.Type_Unknown
@@ -3834,10 +3829,10 @@ function prototype.compileStatFor(self: Compiler, stat: AstStatFor): ()
 		end
 	end
 
-	local oldLocals = self.localStack:size()
-	local oldJumps = self.loopJumps:size()
+	local oldLocals = #self.localStack
+	local oldJumps = #self.loopJumps
 
-	self.loops:push_back(Loop.new(oldLocals, oldLocals, nil))
+	table.insert(self.loops, Loop.new(oldLocals, oldLocals, nil))
 	self.hasLoops = true
 
 	-- register layout: limit, step, index
@@ -3895,9 +3890,9 @@ function prototype.compileStatFor(self: Compiler, stat: AstStatFor): ()
 	self:patchJump(stat, backLabel, loopLabel)
 
 	self:patchLoopJumps(stat, oldJumps, endLabel, contLabel)
-	self.loopJumps:resize(oldJumps)
+	self.loopJumps = table.move(self.loopJumps, 1, oldJumps, 1, {})
 
-	self.loops:pop_back()
+	table.remove(self.loops, #self.loops)
 
 	rs:destroy()
 end
@@ -3910,10 +3905,10 @@ end
 function prototype.compileStatForIn(self: Compiler, stat: AstStatForIn): ()
 	local rs = RegScope.new(self)
 
-	local oldLocals = self.localStack:size()
-	local oldJumps = self.loopJumps:size()
+	local oldLocals = #self.localStack
+	local oldJumps = #self.loopJumps
 
-	self.loops:push_back(Loop.new(oldLocals, oldLocals, nil))
+	table.insert(self.loops, Loop.new(oldLocals, oldLocals, nil))
 	self.hasLoops = true
 
 	-- register layout: generator, state, index, variables...
@@ -3988,9 +3983,9 @@ function prototype.compileStatForIn(self: Compiler, stat: AstStatForIn): ()
 	self:patchJump(stat, backLabel, loopLabel)
 
 	self:patchLoopJumps(stat, oldJumps, endLabel, contLabel)
-	self.loopJumps:resize(oldJumps)
+	self.loopJumps = table.move(self.loopJumps, 1, oldJumps, 1, {})
 
-	self.loops:pop_back()
+	table.remove(self.loops, #self.loops)
 
 	rs:destroy()
 end
@@ -4338,7 +4333,7 @@ function prototype.compileStat(self: Compiler, node: AstNode): ()
 	if statBlock then
 		local rs = RegScope.new(self)
 
-		local oldLocals = self.localStack:size()
+		local oldLocals = #self.localStack
 
 		for _, stat in statBlock.body do
 			self:compileStat(stat :: AstStat)
@@ -4356,31 +4351,36 @@ function prototype.compileStat(self: Compiler, node: AstNode): ()
 	elseif statRepeat then
 		self:compileStatRepeat(statRepeat)
 	elseif statBreak then
-		assert(not self.loops:empty())
+		assert(#self.loops ~= 0)
 
 		-- before exiting out of the loop, we need to close all local variables that were captured in closures since loop start
 		-- normally they are closed by the enclosing blocks, including the loop block, but we're skipping that here
-		self:closeLocals(self.loops:back().localOffset)
+		self:closeLocals(self.loops[#self.loops].localOffset)
 
 		local label = self.bytecode:emitLabel()
 
 		self.bytecode:emitAD(LuauOpcode.LOP_JUMP, 0, 0)
 
-		self.loopJumps:push_back(LoopJump.new(LoopJump.Type.Break, label))
+		table.insert(self.loopJumps, LoopJump.new(LoopJump.Type.Break, label))
 	elseif statContinue then
-		assert(not self.loops:empty())
+		assert(#self.loops ~= 0)
+
+		-- track continue statement for repeat..until validation (validateContinueUntil)
+		if not self.loops[#self.loops].continueUsed then
+			self.loops[#self.loops].continueUsed = statContinue
+		end
 
 		-- before continuing, we need to close all local variables that were captured in closures since loop start
 		-- normally they are closed by the enclosing blocks, including the loop block, but we're skipping that here
-		self:closeLocals(self.loops:back().localOffsetContinue)
+		self:closeLocals(self.loops[#self.loops].localOffsetContinue)
 
 		local label = self.bytecode:emitLabel()
 
 		self.bytecode:emitAD(LuauOpcode.LOP_JUMP, 0, 0)
 
-		self.loopJumps:push_back(LoopJump.new(LoopJump.Type.Continue, label))
+		table.insert(self.loopJumps, LoopJump.new(LoopJump.Type.Continue, label))
 	elseif statReturn then
-		if self.options.optimizationLevel >= 2 and not self.inlineFrames:empty() then
+		if self.options.optimizationLevel >= 2 and #self.inlineFrames ~= 0 then
 			self:compileInlineReturn(statReturn, false)
 		else
 			self:compileStatReturn(statReturn)
@@ -4479,7 +4479,7 @@ end
 	@since v0.1.0
 ]=]
 function prototype.pushLocal(self: Compiler, astLocal: AstLocal, reg: number, allocpc: number): ()
-	if self.localStack:size() >= kMaxLocalCount then
+	if #self.localStack >= kMaxLocalCount then
 		CompileError.raise(
 			astLocal.location,
 			"Out of local registers when trying to allocate %s: exceeded limit %d",
@@ -4488,7 +4488,7 @@ function prototype.pushLocal(self: Compiler, astLocal: AstLocal, reg: number, al
 		)
 	end
 
-	self.localStack:push_back(astLocal)
+	table.insert(self.localStack, astLocal)
 
 	if not self.locals[astLocal] then
 		self.locals[astLocal] = Local.new()
@@ -4512,11 +4512,11 @@ end
 	@since v0.1.0
 ]=]
 function prototype.areLocalsCaptured(self: Compiler, start: number): boolean
-	assert(start <= self.localStack:size())
+	assert(start <= #self.localStack)
 	start += 1
 
-	for i = start, self.localStack:size() do
-		local l = self.locals[self.localStack:get(i)]
+	for i = start, #self.localStack do
+		local l = self.locals[self.localStack[i]]
 		assert(l)
 
 		if l.captured then
@@ -4533,14 +4533,14 @@ end
 	@since v0.1.0
 ]=]
 function prototype.closeLocals(self: Compiler, start: number): ()
-	assert(start <= self.localStack:size())
+	assert(start <= #self.localStack)
 	start += 1 -- account for indices starting at 1 here, so the caller can still exactly copy the C++ code
 
 	local captured = false
 	local captureReg = 255
 
-	for i = start, self.localStack:size() do
-		local l = self.locals[self.localStack:get(i)]
+	for i = start, #self.localStack do
+		local l = self.locals[self.localStack[i]]
 		assert(l)
 
 		if l.captured then
@@ -4560,11 +4560,11 @@ end
 	@since v0.1.0
 ]=]
 function prototype.popLocals(self: Compiler, start: number): ()
-	assert(start <= self.localStack:size())
+	assert(start <= #self.localStack)
 	start += 1 -- see `closeLocals`
 
-	for i = start, self.localStack:size() do
-		local l = self.locals[self.localStack:get(i)]
+	for i = start, #self.localStack do
+		local l = self.locals[self.localStack[i]]
 		assert(l)
 		assert(l.allocated)
 
@@ -4573,14 +4573,14 @@ function prototype.popLocals(self: Compiler, start: number): ()
 		if self.options.debugLevel >= 2 then
 			local debugpc = self.bytecode:getDebugPC()
 
-			self.bytecode:pushDebugLocal(sref(self.localStack:get(i).name), l.reg, l.debugpc, debugpc)
+			self.bytecode:pushDebugLocal(sref(self.localStack[i].name), l.reg, l.debugpc, debugpc)
 		end
 
 		if FastVariables.LuauCompileTempTypeInfo and self.options.typeInfoLevel >= 1 and i > self.argCount then
 			local debugpc = self.bytecode:getDebugPC()
 			local ty = LuauBytecodeType.LBC_TYPE_ANY
 
-			local recordedTy = self.localTypes[self.localStack:get(i)]
+			local recordedTy = self.localTypes[self.localStack[i]]
 			if recordedTy then
 				ty = recordedTy
 			end
@@ -4589,7 +4589,7 @@ function prototype.popLocals(self: Compiler, start: number): ()
 		end
 	end
 
-	self.localStack:resize(start - 1, nil :: any)
+	self.localStack = table.move(self.localStack, 1, start - 1, 1, {})
 end
 
 --[=[
@@ -4620,10 +4620,10 @@ end
 	@since v0.1.0
 ]=]
 function prototype.patchLoopJumps(self: Compiler, node: AstNode, oldJumps: number, endLabel: number, contLabel: number): ()
-	assert(oldJumps <= self.loopJumps:size())
+	assert(oldJumps <= #self.loopJumps)
 
-	for i = oldJumps + 1, self.loopJumps:size() do
-		local lj = self.loopJumps:get(i)
+	for i = oldJumps + 1, #self.loopJumps do
+		local lj = self.loopJumps[i]
 		
 		if lj.type == LoopJump.Type.Break then
 			self:patchJump(node, lj.label, endLabel)
@@ -4640,9 +4640,10 @@ end
 	@private
 	@since v0.1.0
 ]=]
-function prototype.allocReg(self: Compiler, node: AstNode, count: number): number
+function prototype.allocReg(self: Compiler, node: AstNode?, count: number): number
 	local top = self.regTop
 	if top + count > kMaxRegisterCount then
+		assert(node)
 		CompileError.raise(node.location, "Out of registers when trying to allocate %d registers: exceeded limit %d", count, kMaxRegisterCount)
 	end
 
@@ -4789,7 +4790,7 @@ Compiler.compileOrThrow = function(bytecode: BytecodeBuilder, a2: any, a3: any, 
 	local mainFlags = 0
 
 	for _, hc in parseResult.hotcomments:data() do
-		if hc.header and hc.content:sub(0, 9) == "optimize " then
+		if hc.header and hc.content:sub(1, 9) == "optimize " then
 			options.optimizationLevel = math.max(0, math.min(2, assert(tonumber(hc.content:sub(10)))))
 		end
 
@@ -4851,7 +4852,7 @@ Compiler.compileOrThrow = function(bytecode: BytecodeBuilder, a2: any, a3: any, 
 			-- Type will only resolve to an AstName if it is actually mentioned in the source
 			local name = names:get(userdataType)
 			if name.value then
-				compiler.userdataTypes[name] = bytecode:addUserdataType(name.value)
+				compiler.userdataTypes[name.value] = bytecode:addUserdataType(name.value)
 			end
 		end
 

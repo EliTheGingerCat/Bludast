@@ -28,7 +28,6 @@ local function reportFatalError(message: string): ()
 end
 
 local function getTestData(path: string): testData?
-	print(path)
 	local data = require(path .. ".test") :: testData
 
 	if type(data) == "table" then

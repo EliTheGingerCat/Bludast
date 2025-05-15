@@ -39,7 +39,7 @@ Some files from `/Ast` were moved to `/Shared` since they are used in more than 
 
 Fast flags and fast integers are stored in a separate file, `/Shared/FastVariables.luau`.
 
-Instead of 64 bit numbers, pairs of 32 bit numbers are used.
+Instead of 64-bit numbers, either vectors (with [int64-luau](https://github.com/Dekkonot/int64-luau)) or pairs of 32-bit numbers are used.
 
 ## Progress
 

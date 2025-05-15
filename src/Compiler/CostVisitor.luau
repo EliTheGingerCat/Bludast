@@ -51,6 +51,7 @@ type AstStatWhile = AstStatWhile.AstStatWhile
 type AstVisitor = AstVisitor.AstVisitor
 local btn = NumberConversions.booleanToNumber
 type Cost = Cost.Cost
+local int = NumberConversions.int
 type Pair<T1, T2> = Pair.Pair<T1, T2>
 type u64 = NumberConversions.u64
 local u64_eq = NumberConversions.u64_equal
@@ -148,15 +149,15 @@ end
 ]=]
 function CostVisitor.getTripCount(from: number, to: number, step: number): number
 	-- we compute trip count in integers because that way we know that the loop math (repeated addition) is precise
-	local fromi = if from >= -32767 and from <= 32767 then from else nil
-	local toi = if to >= -32767 and to <= 32767 then to else nil
-	local stepi = if step >= -32767 and step <= 32767 then step else nil
+	local fromi = if from >= -32767 and from <= 32767 and int(from) == from then int(from) else nil
+	local toi = if to >= -32767 and to <= 32767 and int(to) == to then int(to) else nil
+	local stepi = if step >= -32767 and step <= 32767 and int(step) == step then int(step) else nil
 
 	if fromi == nil or toi == nil or stepi == nil or stepi == 0 then
 		return -1
 	end
 
-	if stepi < 0 and toi > fromi or stepi > 0 and toi < fromi then
+	if (stepi < 0 and toi > fromi) or (stepi > 0 and toi < fromi) then
 		return 0
 	end
 
@@ -338,10 +339,11 @@ function prototype.visitAstStatFor(self: CostVisitor, node: AstStatFor): boolean
 	local resultStep
 
 	if node.step then
+		self.result += self:model(node.step)
 		resultStep = getNumber(node.step)
 	end
 
-	if resultFrom.success and resultTo.success and not node.step or resultStep.success then
+	if resultFrom.success and resultTo.success and (not node.step or resultStep.success) then
 		tripCount = CostVisitor.getTripCount(
 			resultFrom.number,
 			resultTo.number,

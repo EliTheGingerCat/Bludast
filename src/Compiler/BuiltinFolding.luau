@@ -32,10 +32,7 @@ end
 
 local function cvector(x: number, y: number, z: number, w: number): Constant
 	local res = Constant.new(Constant.Type.Type_Vector)
-	res.valueVector[1] = x
-	res.valueVector[2] = y
-	res.valueVector[3] = z
-	res.valueVector[4] = w
+	res.valueVector = {x, y, z, w}
 	return res
 end
 
@@ -184,7 +181,11 @@ function BuiltinFolding.foldBuiltin(bfid: number, args: {Constant}, count: numbe
 		end
 	elseif bfid == LuauBuiltinFunction.LBF_MATH_SINH then
 		if count == 1 and args[1].type == Constant.Type.Type_Number then
-			return cnum(math.sign(args[1].valueNumber))
+			return cnum(math.sinh(args[1].valueNumber))
+		end
+	elseif bfid == LuauBuiltinFunction.LBF_MATH_SIN then
+		if count == 1 and args[1].type == Constant.Type.Type_Number then
+			return cnum(math.sin(args[1].valueNumber))
 		end
 	elseif bfid == LuauBuiltinFunction.LBF_MATH_SQRT then
 		if count == 1 and args[1].type == Constant.Type.Type_Number then
@@ -204,7 +205,7 @@ function BuiltinFolding.foldBuiltin(bfid: number, args: {Constant}, count: numbe
 			local s = int(args[2].valueNumber)
 
 			if unsigned(s) < 32 then
-				return cnum(uint32_t(bit32.rshift(uint32_t(u), s)))
+				return cnum(bit32.arshift(u, s))
 			end
 		end
 	elseif bfid == LuauBuiltinFunction.LBF_BIT32_BAND then
@@ -243,7 +244,11 @@ function BuiltinFolding.foldBuiltin(bfid: number, args: {Constant}, count: numbe
 		if count >= 1 and args[1].type == Constant.Type.Type_Number then
 			local r = toBit32(args[1].valueNumber)
 
-			for _, arg in args do
+			for index, arg in args do
+				if index == 1 then
+					continue
+				end
+
 				if arg.type ~= Constant.Type.Type_Number then
 					return cvar()
 				end
@@ -343,7 +348,7 @@ function BuiltinFolding.foldBuiltin(bfid: number, args: {Constant}, count: numbe
 				return cnum(string.byte(args[1].valueString))
 			end
 		elseif count == 2 and args[1].type == Constant.Type.Type_String and args[2].type == Constant.Type.Type_Number then
-			local i = int(args[1].valueNumber)
+			local i = int(args[2].valueNumber)
 
 			if i > 0 and unsigned(i) <= args[1].stringLength then
 				return cnum(string.byte(args[1].valueString, i))

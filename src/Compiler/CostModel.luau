@@ -18,11 +18,11 @@ type u64 = NumberConversions.u64
 ]=]
 local CostModel = {}
 
-local function get_u4_from_u64(u: u64, byte: number): number
+local function get_u8_from_u64(u: u64, byte: number): number
 	if byte < 5 then
 		return bit32.band(bit32.rshift(u.first, (byte - 1) * 8), 0xff)
 	else
-		return bit32.band(bit32.rshift(u.first, (byte - 5) * 8), 0xff)
+		return bit32.band(bit32.rshift(u.second, (byte - 5) * 8), 0xff)
 	end
 end
 
@@ -64,7 +64,7 @@ function CostModel.computeCost(model: u64, varsConst: {boolean}?, varCount: numb
 	end
 
 	for i = 1, math.min(varCount, 7) do
-		cost -= bit32.band(get_u4_from_u64(model, i + 1), 0x7f) * btn(assert(varsConst)[i])
+		cost -= bit32.band(get_u8_from_u64(model, i + 1), 0x7f) * btn(assert(varsConst)[i])
 	end
 
 	return cost

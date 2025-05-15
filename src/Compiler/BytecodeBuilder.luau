@@ -5,6 +5,7 @@ local BytecodeEncoder = require("./BytecodeEncoder")
 local BytecodeUtilities = require("@Common/Bytecode/BytecodeUtilities")
 local DebugFlags = require("@Shared/DebugFlags")
 local FastVariables = require("@Shared/FastVariables")
+local int64 = require("@Vendor/int64")
 local LUAU_ASSERT = require("@Shared/LUAU_ASSERT")
 local LuauBytecodeTag = require("@Common/Bytecode/LuauBytecodeTag")
 local LuauBytecodeType = require("@Common/Bytecode/LuauBytecodeType")
@@ -48,7 +49,8 @@ end
 	Used for passing strings by reference.
 ]=]
 type stringWrap = {
-	s: string
+	len: number,
+	contents: {string}
 }
 
 local kMaxConstantCount = bit32.lshift(1, 23)
@@ -75,14 +77,14 @@ local function hashStringRef(v: StringRef): number
 	local size = v.length
 
 	-- FNV-1a
-	local hash = 2166136261
+	local hash = int64.from_u32(2166136261)
 
 	for i = 1, size do
-		hash = bit32.bxor(hash, uint8_t(string.byte(data, i)))
-		hash *= 16777619
+		hash = int64.bxor(hash, int64.from_u32(uint8_t(string.byte(data, i))))
+		hash = int64.band(int64.mult(hash, int64.from_u32(16777619)), int64.MAX_U32)
 	end
 
-	return hash
+	return int64.to_f64(hash)
 end
 
 --[=[
@@ -106,14 +108,14 @@ end
 
 local function hashTableShape(v: TableShape): number
 	-- FNV-1a inspired hash (note that we feed integers instead of bytes)
-	local hash = 2166136261
+	local hash = int64.from_u32(2166136261)
 
 	for i = 1, v.length do
-		hash = bit32.bxor(hash, v.keys[i])
-		hash *= 16777619
+		hash = int64.bxor(hash, int64.from_u32(v.keys[i]))
+		hash = int64.band(int64.mult(hash, int64.from_u32(16777619)), int64.MAX_U32)
 	end
 
-	return hash
+	return int64.to_f64(hash)
 end
 
 --[=[
@@ -170,62 +172,75 @@ local ConstantKey = {}
 
 type ConstantKey = {
 	type: number,
+	value: vector,
 	-- Note: this stores value* from Constant;
-	value1: number,
-	value2: number,
-	value3: number,
-	value4: number
+	-- For Type_Vector, x and y are stored in 'value' and z and w are stored in 'extra'.
+	extra: vector
 }
 
 function ConstantKey.new(type: number, value: number?): ConstantKey
-	return {
+	local data = {
 		type = type,
-		value1 = value or 0,
-		value2 = 0,
-		value3 = 0,
-		value4 = 0,
-		extra = 0
+		extra = int64.ZERO
 	}
+	if value then
+		local buf = buffer.create(8)
+		buffer.writef64(buf, 0, value)
+		data.value = int64.from_buffer(buf)
+	else
+		data.value = int64.ZERO
+	end
+	return data
 end
 
-local function hashKey(key: ConstantKey)
+-- DarkenedRing: this hashing stuff is actually not necessary at all, but I've already done it, so too bad.
+local function hashKey(key: ConstantKey): number
 	if key.type == Constant.Type.Type_Vector then
 		local i = table.create(4)
-		i[1], i[2], i[3], i[4] = key.value1, key.value2, key.value3, key.value4
+
+		i[1], i[2] = int64.to_pair(key.value)
+		i[3], i[4] = int64.to_pair(key.extra)
 
 		-- scramble bits to make sure that integer coordinates have entropy in lower bits
-		i[1] = bit32.bxor(i[1], bit32.rshift(i[1], 17))
-		i[2] = bit32.bxor(i[2], bit32.rshift(i[2], 17))
-		i[3] = bit32.bxor(i[3], bit32.rshift(i[3], 17))
-		i[4] = bit32.bxor(i[1], bit32.rshift(i[4], 17))
+		local x = int64.from_u32(bit32.bxor(i[1], bit32.rshift(i[1], 17)))
+		local y = int64.from_u32(bit32.bxor(i[2], bit32.rshift(i[2], 17)))
+		local z = int64.from_u32(bit32.bxor(i[3], bit32.rshift(i[3], 17)))
+		local w = int64.from_u32(bit32.bxor(i[4], bit32.rshift(i[4], 17)))
 
 		-- Optimized Spatial Hashing for Collision Detection of Deformable Objects
-		local h = bit32.bxor(
-			i[1] * 73856093,
-			i[2] * 19349663,
-			i[3] * 83492791,
-			i[4] * 39916801
+		local h = int64.bxor(
+			int64.band(int64.mult(x, int64.from_u32(73856093)), int64.MAX_U32),
+			int64.bxor(
+				int64.band(int64.mult(y, int64.from_u32(19349663)), int64.MAX_U32),
+				int64.bxor(
+					int64.band(int64.mult(z, int64.from_u32(83492791)), int64.MAX_U32),
+					int64.band(int64.mult(w, int64.from_u32(39916801)), int64.MAX_U32)
+				)
+			)
 		)
 
-		return h
+		return int64.to_f64(h)
 	else
 		-- finalizer from MurmurHash64B
 		local m = 0x5bd1e995
+		local m64 = int64.from_u32(m)
 
-		local h1 = uint32_t(key.value1)
-		local h2 = bit32.bxor(uint32_t(bit32.rshift(key.value1, 32)), key.type * m)
+		local most, least = int64.to_pair(key.value)
 
-		h1 = bit32.bxor(h1, bit32.rshift(h2, 18))
-		h1 *= m
-		h2 = bit32.bxor(h2, bit32.rshift(h1, 22))
-		h2 *= m
-		h1 = bit32.bxor(h1, bit32.rshift(h2, 17))
-		h1 *= m
-		h2 = bit32.bxor(h2, bit32.rshift(h1, 19))
-		h2 *= m
+		local h1 = int64.from_u32(most)
+		local h2 = int64.bxor(int64.from_u32(least), int64.from_u32(key.type * m))
+
+		h1 = int64.bxor(h1, int64.rshift(h2, 18))
+		h1 = int64.band(int64.mult(h1, m64), int64.MAX_U32)
+		h2 = int64.bxor(h2, int64.rshift(h1, 22))
+		h2 = int64.band(int64.mult(h2, m64), int64.MAX_U32)
+		h1 = int64.bxor(h1, int64.rshift(h2, 17))
+		h1 = int64.band(int64.mult(h1, m64), int64.MAX_U32)
+		h2 = int64.bxor(h2, int64.rshift(h1, 19))
+		h2 = int64.band(int64.mult(h2, m64), int64.MAX_U32)
 
 		-- ... truncated to 32-bit output (normally hash is equal to (uint64_t(h1) << 32) | h2, but we only really need the lower 32-bit half)
-		return h2
+		return int64.to_f64(h2)
 	end
 end
 
@@ -661,7 +676,8 @@ end
 	@within BytecodeBuilder
 	@since v0.1.0
 ]=]
-function prototype.beginFunction(self: BytecodeBuilder, numparams: number, isvararg: boolean): number
+function prototype.beginFunction(self: BytecodeBuilder, numparams: number, isvararg: boolean?): number
+	local isvararg = if isvararg ~= nil then isvararg else false
 	LUAU_ASSERT(self.currentFunction == bit32.bnot(0))
 
 	local id = self.functions:size()
@@ -684,7 +700,8 @@ end
 	@within BytecodeBuilder
 	@since v0.1.0
 ]=]
-function prototype.endFunction(self: BytecodeBuilder, maxstacksize: number, numupvalues: number, flags: number): ()
+function prototype.endFunction(self: BytecodeBuilder, maxstacksize: number, numupvalues: number, flags: number?): ()
+	local flags = flags or 0
 	LUAU_ASSERT(self.currentFunction ~= bit32.bnot(0))
 
 	local func = self.functions:get(self.currentFunction + 1)
@@ -796,9 +813,7 @@ end
 ]=]
 function prototype.tryGetUserdataTypeName(self: BytecodeBuilder, type: number): string?
 	LUAU_ASSERT(FastVariables.LuauCompileUserdataInfo)
-
-	local index = unsigned(bit32.band(type, bit32.bnot(LuauBytecodeType.LBC_TYPE_OPTIONAL_BIT) - LuauBytecodeType.LBC_TYPE_TAGGED_USERDATA_BASE))
-
+	local index = unsigned(bit32.band(type, bit32.bnot(LuauBytecodeType.LBC_TYPE_OPTIONAL_BIT)) - LuauBytecodeType.LBC_TYPE_TAGGED_USERDATA_BASE)
 	if index < self.userdataTypes:size() then
 		return self.userdataTypes:get(index + 1).name
 	end
@@ -837,8 +852,7 @@ function prototype.addConstantNumber(self: BytecodeBuilder, value: number): numb
 	local c = Constant.new(Constant.Type.Type_Number)
 	c.valueNumber = value
 
-	local k = ConstantKey.new(Constant.Type.Type_Number)
-	k.value1 = value
+	local k = ConstantKey.new(Constant.Type.Type_Number, value)
 
 	return self:addConstant(k, c)
 end
@@ -849,16 +863,18 @@ end
 ]=]
 function prototype.addConstantVector(self: BytecodeBuilder, x: number, y: number, z: number, w: number): number
 	local c = Constant.new(Constant.Type.Type_Vector)
-	c.valueVector[1] = x
-	c.valueVector[2] = y
-	c.valueVector[3] = z
-	c.valueVector[4] = w
+	c.valueVector = {x, y, z, w}
 
 	local k = ConstantKey.new(Constant.Type.Type_Vector)
-	k.value1 = x
-	k.value2 = y
-	k.value3 = z
-	k.value4 = w
+	local buf1 = buffer.create(8)
+	buffer.writef32(buf1, 0, x)
+	buffer.writef32(buf1, 4, y)
+	local buf2 = buffer.create(8)
+	buffer.writef32(buf2, 0, z)
+	buffer.writef32(buf2, 4, w)
+
+	k.value = int64.from_buffer(buf1)
+	k.extra = int64.from_buffer(buf2)
 
 	return self:addConstant(k, c)
 end
@@ -1225,7 +1241,7 @@ function prototype.addDebugRemark(self: BytecodeBuilder, remark: string): ()
 	self.debugRemarkBuffer ..= "\0"
 
 	self.debugRemarks:push_back(Pair.new(uint32_t(self.insns:size()), uint32_t(offset)))
-	self.dumpRemarks:push_back(Pair.new(self.debugLine, self.debugRemarkBuffer:sub(offset)))
+	self.dumpRemarks:push_back(Pair.new(self.debugLine, self.debugRemarkBuffer:sub(offset, #self.debugRemarkBuffer - 1)))
 end
 
 --[=[
@@ -1471,7 +1487,12 @@ function prototype.writeLineInfo(self: BytecodeBuilder, buf: Buffer): ()
 	local span = bit32.lshift(1, 24)
 
 	-- first pass: determine span length
-	for offset = 0, self.lines:size() - 1, span do
+	local offset = 0
+	while true do
+		if offset > self.lines:size() - 1 then
+			break
+		end
+
 		local next = offset
 
 		local min = self.lines:get(offset + 1)
@@ -1495,8 +1516,10 @@ function prototype.writeLineInfo(self: BytecodeBuilder, buf: Buffer): ()
 		if next < self.lines:size() and next - offset < span then
 			-- since not all lines in the range fit in 8b delta, we need to shrink the span
             -- next iteration will need to reprocess some lines again since span changed
-			span = bit32.lshift(1, log2(next - offset))
+			span = bit32.lshift(1, log2(int(next - offset)))
 		end
+
+		offset += span
 	end
 
 	-- second pass: compute span base
@@ -1506,6 +1529,8 @@ function prototype.writeLineInfo(self: BytecodeBuilder, buf: Buffer): ()
 	if baselineSize > 1 then
 		-- avoid heap allocation for single-element baseline which is most functions (<256 lines)
 		baselineScratch:resize(baselineSize)
+	else
+		baselineScratch:resize(1)
 	end
 
 	for offset = 0, self.lines:size() - 1, span do
@@ -1523,12 +1548,7 @@ function prototype.writeLineInfo(self: BytecodeBuilder, buf: Buffer): ()
 			next += 1
 		end
 
-		if baselineSize <= 1 then
-			baselineScratch:resize(1)
-			baselineScratch:set(1, min)
-		else
-			baselineScratch:set((offset / span) + 1, min)			
-		end
+		baselineScratch:set((offset / span) + 1, min)
 	end
 
 	-- third pass: write resulting data
@@ -1728,8 +1748,7 @@ function prototype.expandJumps(self: BytecodeBuilder): ()
 
 	-- first, let's add jump thunks for every jump with a distance that's too big
 	-- we will create new instruction buffers, with remap table keeping track of the moves: remap[oldpc] = newpc
-	local remap: Vector<number> = Vector.new()
-	remap:reserve(self.insns:size())
+	local remap: Vector<number> = Vector.new(self.insns:size())
 
 	local newinsns: Vector<number> = Vector.new()
 	local newlines: Vector<number> = Vector.new()
@@ -1748,7 +1767,7 @@ function prototype.expandJumps(self: BytecodeBuilder): ()
 		LUAU_ASSERT(op < LuauOpcode.LOP__COUNT)
 
 		if currentJump < #self.jumps and self.jumps[currentJump + 1].source == i - 1 then
-			local offset = int(self.jumps[currentJump + 1].target) - int(self.jumps[currentJump - 1].source) - 1
+			local offset = int(self.jumps[currentJump + 1].target) - int(self.jumps[currentJump + 1].source) - 1
 
 			if math.abs(offset) > kMaxJumpDistanceConservative then
 				-- insert jump trampoline as described above; we keep JUMPX offset uninitialized in this pass
@@ -1760,6 +1779,8 @@ function prototype.expandJumps(self: BytecodeBuilder): ()
 
 				pendingTrampolines += 1
 			end
+
+			currentJump += 1
 		end
 
 		local oplen = getOpLength(op)
@@ -1786,32 +1807,32 @@ function prototype.expandJumps(self: BytecodeBuilder): ()
 
 		if math.abs(offset) > kMaxJumpDistanceConservative then
 			-- fix up jump trampoline
-			local insnt = newinsns:get(remap:get(jump.source + 1) - 1)
-			local insnj = newinsns:get(remap:get(jump.source + 1))
+			local insnt_index = remap:get(jump.source + 1) - 1 + 1
+			local insnj_index = remap:get(jump.source + 1) + 1
 
-			LUAU_ASSERT(LUAU_INSN_OP(insnt) == LuauOpcode.LOP_JUMPX)
+			LUAU_ASSERT(LUAU_INSN_OP(newinsns:get(insnt_index)) == LuauOpcode.LOP_JUMPX)
 
 			-- patch JUMPX to JUMPX to target location; note that newoffset is the offset of the jump *relative to OP*, so we need to add 1 to make it
 			-- relative to JUMPX
-			insnt = bit32.band(insnt, 0xff)
-			insnt = bit32.bor(insnt, bit32.lshift(uint32_t(newoffset + 1), 8))
+			newinsns:set(insnt_index, bit32.band(newinsns:get(insnt_index), 0xff))
+			newinsns:set(insnt_index, bit32.bor(newinsns:get(insnt_index), bit32.lshift(uint32_t(newoffset + 1), 8)))
 
 			-- patch OP to OP -2
-			insnj = bit32.band(insnj, 0xffff)
-			insnj = bit32.bor(insnj, bit32.lshift(uint16_t(-2), 16))
+			newinsns:set(insnj_index, bit32.band(newinsns:get(insnj_index), 0xffff))
+			newinsns:set(insnj_index, bit32.bor(newinsns:get(insnj_index), bit32.lshift(uint16_t(-2), 16)))
 
 			pendingTrampolines -= 1
 		else
-			local insn = newinsns:get(remap:get(jump.source + 1) + 1)
+			local insn_index = remap:get(jump.source + 1) + 1
 
 			-- make sure jump instruction had the correct offset before we started
-			LUAU_ASSERT(LUAU_INSN_D(insn) == offset)
+			LUAU_ASSERT(LUAU_INSN_D(newinsns:get(insn_index)) == offset)
 
 			-- patch instruction with the new offset
-			LUAU_ASSERT(int16_t(newoffset) == offset)
+			LUAU_ASSERT(int16_t(newoffset) == newoffset)
 
-			insn = bit32.band(insn, 0xffff)
-			insn = bit32.bor(insn, bit32.lshift(uint16_t(newoffset), 16))
+			newinsns:set(insn_index, bit32.band(newinsns:get(insn_index), 0xffff))
+			newinsns:set(insn_index, bit32.bor(newinsns:get(insn_index), bit32.lshift(uint16_t(newoffset), 16)))
 		end
 	end
 
@@ -1892,15 +1913,15 @@ function prototype.validateInstructions(self: BytecodeBuilder): ()
 
 	-- tag instruction offsets so that we can validate jumps
 	local insnvalid = Vector.new(self.insns:size(), 0)
-	local i = 1
-	while i <= self.insns:size() do
-		local insn = self.insns:get(i)
+	local i = 0
+	while i < self.insns:size() do
+		local insn = self.insns:get(i + 1)
 		local op = LUAU_INSN_OP(insn)
 
-		insnvalid:set(i, btn(true))
+		insnvalid:set(i + 1, btn(true))
 
 		i += getOpLength(op)
-		LUAU_ASSERT(i <= self.insns:size() + 1)
+		LUAU_ASSERT(i <= self.insns:size())
 	end
 
 	local openCaptures: Vector<number> = Vector.new()
@@ -2005,7 +2026,7 @@ function prototype.validateInstructions(self: BytecodeBuilder): ()
 			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
 		elseif op == LuauOpcode.LOP_JUMPXEQKS then
 			VREG(LUAU_INSN_A(insn), func)
-			VCONST(bit32.band(self.insns:get(i + 1), 0xffffff), Constant.Type.Type_Number, self.constants)
+			VCONST(bit32.band(self.insns:get(i + 1), 0xffffff), Constant.Type.Type_String, self.constants)
 			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
 		elseif
 			op == LuauOpcode.LOP_ADD
@@ -2022,7 +2043,7 @@ function prototype.validateInstructions(self: BytecodeBuilder): ()
 		elseif
 			op == LuauOpcode.LOP_ADDK
 			or op == LuauOpcode.LOP_SUBK
-			or op == LuauOpcode.LOP_MUL
+			or op == LuauOpcode.LOP_MULK
 			or op == LuauOpcode.LOP_DIVK
 			or op == LuauOpcode.LOP_IDIVK
 			or op == LuauOpcode.LOP_MODK
@@ -2081,7 +2102,7 @@ function prototype.validateInstructions(self: BytecodeBuilder): ()
 			VREG(LUAU_INSN_A(insn) + 4, func)
 			VJUMP(LUAU_INSN_D(insn), i, self.insns, insnvalid)
 		elseif op == LuauOpcode.LOP_GETVARARGS then
-			local nresults = LUAU_INSN_A(insn) - 1
+			local nresults = LUAU_INSN_B(insn) - 1
 			VREGRANGE(LUAU_INSN_A(insn), nresults, func) -- 0..nresults-1
 		elseif op == LuauOpcode.LOP_DUPCLOSURE then
 			VREG(LUAU_INSN_A(insn), func)
@@ -2180,7 +2201,7 @@ function prototype.validateVariadic(self: BytecodeBuilder): ()
 		if target >= 0 and not isFastCall(op) then
 			LUAU_ASSERT(unsigned(target) < self.insns:size())
 
-			insntargets:set(target, btn(true))
+			insntargets:set(target + 1, btn(true))
 		end
 
 		i += getOpLength(op)
@@ -2277,8 +2298,9 @@ function BytecodeBuilder.printableStringConstant(str: string, len: number): bool
 	return true
 end
 
-local function formatAppend(str: stringWrap, fmt: string, ...: any)
-	str.s ..= fmt:format(...)
+local function append(str: stringWrap, text: string): ()
+	str.len += #text
+	table.insert(str.contents, text)
 end
 
 --[=[
@@ -2288,29 +2310,29 @@ end
 function prototype.dumpConstant(self: BytecodeBuilder, result: stringWrap, k: number): ()
 	local k = int(k)
 	LUAU_ASSERT(unsigned(k) < self.constants:size())
-	local data = self.constants:get(k + 1)
+	local data = self.constants:get(unsigned(k) + 1)
 
 	if data.type == Constant.Type.Type_Nil then
-		formatAppend(result, "nil")
+		append(result, string.format("nil"))
 	elseif data.type == Constant.Type.Type_Boolean then
-		formatAppend(result, "%s", if data.valueBoolean then "true" else "false")
+		append(result, string.format("%s", if data.valueBoolean then "true" else "false"))
 	elseif data.type == Constant.Type.Type_Number then
-		formatAppend(result, "%.17g", data.valueNumber)
+		append(result, string.format("%.17g", data.valueNumber))
 	elseif data.type == Constant.Type.Type_Vector then
 		-- 3-vectors is the most common configuration, so truncate to three components if possible
 		if data.valueVector[4] == 0 then
-			formatAppend(result, "%.9g, %.9g, %.9g", data.valueVector[1], data.valueVector[2], data.valueVector[3])
+			append(result, string.format("%.9g, %.9g, %.9g", data.valueVector[1], data.valueVector[2], data.valueVector[3]))
 		else
-			formatAppend(result, "%.9g, %.9g, %.9g, %.9g", data.valueVector[1], data.valueVector[2], data.valueVector[3], data.valueVector[4])
+			append(result, string.format("%.9g, %.9g, %.9g, %.9g", data.valueVector[1], data.valueVector[2], data.valueVector[3], data.valueVector[4]))
 		end
 	elseif data.type == Constant.Type.Type_String then
 		local str = self.debugStrings:get(data.valueString)
 
 		if BytecodeBuilder.printableStringConstant(str.data, str.length) then
 			if str.length < 32 then
-				formatAppend(result, "'%s'", str.data)
+				append(result, string.format("'%s'", str.data))
 			else
-				formatAppend(result, "'%s'...", str.data:sub(1, 32))
+				append(result, string.format("'%s'...", str.data:sub(1, 32)))
 			end
 		end
 	elseif data.type == Constant.Type.Type_Import then
@@ -2327,7 +2349,7 @@ function prototype.dumpConstant(self: BytecodeBuilder, result: stringWrap, k: nu
 				LUAU_ASSERT(id.type == Constant.Type.Type_String and id.valueString <= self.debugStrings:size())
 
 				local str = self.debugStrings:get(id.valueString)
-				formatAppend(result, "%s", str.data)
+				append(result, string.format("%s", str.data))
 			end
 
 			if count > 1 then
@@ -2335,7 +2357,7 @@ function prototype.dumpConstant(self: BytecodeBuilder, result: stringWrap, k: nu
 				LUAU_ASSERT(id.type == Constant.Type.Type_String and id.valueString <= self.debugStrings:size())
 
 				local str = self.debugStrings:get(id.valueString)
-				formatAppend(result, ".%s", str.data)
+				append(result, string.format(".%s", str.data))
 			end
 
 			if count > 2 then
@@ -2343,16 +2365,16 @@ function prototype.dumpConstant(self: BytecodeBuilder, result: stringWrap, k: nu
 				LUAU_ASSERT(id.type == Constant.Type.Type_String and id.valueString <= self.debugStrings:size())
 
 				local str = self.debugStrings:get(id.valueString)
-				formatAppend(result, ".%s", str.data)
+				append(result, string.format(".%s", str.data))
 			end
 		end
 	elseif data.type == Constant.Type.Type_Table then
-		formatAppend(result, "{...}")
+		append(result, string.format("{...}"))
 	elseif data.type == Constant.Type.Type_Closure then
 		local func = self.functions:get(data.valueClosure + 1)
 
 		if func.dumpname ~= "" then
-			formatAppend(result, "'%s'", func.dumpname)
+			append(result, string.format("'%s'", func.dumpname))
 		end
 	end
 end
@@ -2366,273 +2388,286 @@ function prototype.dumpInstruction(self: BytecodeBuilder, codeIndex: number, res
 	local code = codeIndex + 1
 	local op = LUAU_INSN_OP(insn)
 	if op == LuauOpcode.LOP_LOADNIL then
-		formatAppend(result, "LOADNIL R%d\n", LUAU_INSN_A(insn))
+		append(result, string.format("LOADNIL R%d\n", LUAU_INSN_A(insn)))
 	elseif op == LuauOpcode.LOP_LOADB then
 		if LUAU_INSN_C(insn) ~= 0 then
-			formatAppend(result, "LOADB R%d %d +%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+			append(result, string.format("LOADB R%d %d +%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 		else
-			formatAppend(result, "LOADB R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn))
+			append(result, string.format("LOADB R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn)))
 		end
 	elseif op == LuauOpcode.LOP_LOADN then
-		formatAppend(result, "LOADN R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_D(insn))
+		append(result, string.format("LOADN R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_D(insn)))
 	elseif op == LuauOpcode.LOP_LOADK then
-		formatAppend(result, "LOADK R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_D(insn))
+		append(result, string.format("LOADK R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_D(insn)))
 		self:dumpConstant(result, LUAU_INSN_D(insn))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_MOVE then
-		formatAppend(result, "MOVE R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn))
+		append(result, string.format("MOVE R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn)))
 	elseif op == LuauOpcode.LOP_GETGLOBAL then
-		formatAppend(result, "GETGLOBAL R%d K%d [", LUAU_INSN_A(insn), self.insns:get(code))
+		append(result, string.format("GETGLOBAL R%d K%d [", LUAU_INSN_A(insn), self.insns:get(code)))
 		self:dumpConstant(result, self.insns:get(code))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_SETGLOBAL then
-		formatAppend(result, "SETGLOBAL R%d K%d [", LUAU_INSN_A(insn), self.insns:get(code))
+		append(result, string.format("SETGLOBAL R%d K%d [", LUAU_INSN_A(insn), self.insns:get(code)))
 		self:dumpConstant(result, self.insns:get(code))
-		result.s ..= "]\n"
+		append(result, "]\n")
 		code += 1
 	elseif op == LuauOpcode.LOP_GETUPVAL then
-		formatAppend(result, "GETUPVAL R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn))
+		append(result, string.format("GETUPVAL R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn)))
 	elseif op == LuauOpcode.LOP_SETUPVAL then
-		formatAppend(result, "SETUPVAL R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn))
+		append(result, string.format("SETUPVAL R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn)))
 	elseif op == LuauOpcode.LOP_CLOSEUPVALS then
-		formatAppend(result, "CLOSEUPVALS R%d\n", LUAU_INSN_A(insn))
+		append(result, string.format("CLOSEUPVALS R%d\n", LUAU_INSN_A(insn)))
 	elseif op == LuauOpcode.LOP_GETIMPORT then
-		formatAppend(result, "GETIMPORT R%d %d [", LUAU_INSN_A(insn), LUAU_INSN_D(insn))
+		append(result, string.format("GETIMPORT R%d %d [", LUAU_INSN_A(insn), LUAU_INSN_D(insn)))
 		self:dumpConstant(result, LUAU_INSN_D(insn))
-		result.s ..= "]\n"
+		append(result, "]\n")
 		code += 1 -- AUX
 	elseif op == LuauOpcode.LOP_GETTABLE then
-		formatAppend(result, "GETTABLE R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("GETTABLE R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_SETTABLE then
-		formatAppend(result, "SETTABLE R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("SETTABLE R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_GETTABLEKS then
-		formatAppend(result, "GETTABLEKS R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), self.insns:get(code))
+		append(result, string.format("GETTABLEKS R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), self.insns:get(code)))
 		self:dumpConstant(result, self.insns:get(code))
-		result.s ..= "]\n"
+		append(result, "]\n")
 		code += 1
 	elseif op == LuauOpcode.LOP_SETTABLEKS then
-		formatAppend(result, "SETTABLEKS R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), self.insns:get(code))
+		append(result, string.format("SETTABLEKS R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), self.insns:get(code)))
 		self:dumpConstant(result, self.insns:get(code))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_GETTABLEN then
-		formatAppend(result, "GETTABLEN R%d R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn) + 1)
+		append(result, string.format("GETTABLEN R%d R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn) + 1))
 	elseif op == LuauOpcode.LOP_SETTABLEN then
-		formatAppend(result, "SETTABLEN R%d R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn) + 1)
+		append(result, string.format("SETTABLEN R%d R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn) + 1))
 	elseif op == LuauOpcode.LOP_NEWCLOSURE then
-		formatAppend(result, "NEWCLOSURE R%d P%d\n", LUAU_INSN_A(insn), LUAU_INSN_D(insn))
+		append(result, string.format("NEWCLOSURE R%d P%d\n", LUAU_INSN_A(insn), LUAU_INSN_D(insn)))
 	elseif op == LuauOpcode.LOP_NAMECALL then
-		formatAppend(result, "NAMECALL R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), self.insns:get(code))
+		append(result, string.format("NAMECALL R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), self.insns:get(code)))
 		self:dumpConstant(result, self.insns:get(code))
-		result.s ..= "]\n"
+		append(result, "]\n")
 		code += 1
 	elseif op == LuauOpcode.LOP_CALL then
-		formatAppend(result, "CALL R%d %d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn) - 1, LUAU_INSN_C(insn) - 1)
+		append(result, string.format("CALL R%d %d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn) - 1, LUAU_INSN_C(insn) - 1))
 	elseif op == LuauOpcode.LOP_RETURN then
-		formatAppend(result, "RETURN R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn) - 1)
+		append(result, string.format("RETURN R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn) - 1))
 	elseif op == LuauOpcode.LOP_JUMP then
-		formatAppend(result, "JUMP L%d\n", targetLabel)
+		append(result, string.format("JUMP L%d\n", targetLabel))
 	elseif op == LuauOpcode.LOP_JUMPIF then
-		formatAppend(result, "JUMPIF R%d L%d\n", LUAU_INSN_A(insn), targetLabel)
+		append(result, string.format("JUMPIF R%d L%d\n", LUAU_INSN_A(insn), targetLabel))
 	elseif op == LuauOpcode.LOP_JUMPIFNOT then
-		formatAppend(result, "JUMPIFNOT R%d L%d\n", LUAU_INSN_A(insn), targetLabel)
+		append(result, string.format("JUMPIFNOT R%d L%d\n", LUAU_INSN_A(insn), targetLabel))
 	elseif op == LuauOpcode.LOP_JUMPIFEQ then
-		formatAppend(result, "JUMPIFEQ R%d R%d L%d\n", LUAU_INSN_A(insn), self.insns:get(code), targetLabel)
+		append(result, string.format("JUMPIFEQ R%d R%d L%d\n", LUAU_INSN_A(insn), self.insns:get(code), targetLabel))
 		code += 1
 	elseif op == LuauOpcode.LOP_JUMPIFLE then
-		formatAppend(result, "JUMPIFLE R%d R%d L%d\n", LUAU_INSN_A(insn), self.insns:get(code), targetLabel)
+		append(result, string.format("JUMPIFLE R%d R%d L%d\n", LUAU_INSN_A(insn), self.insns:get(code), targetLabel))
 		code += 1
 	elseif op == LuauOpcode.LOP_JUMPIFLT then
-		formatAppend(result, "JUMPIFLT R%d R%d L%d\n", LUAU_INSN_A(insn), self.insns:get(code), targetLabel)
+		append(result, string.format("JUMPIFLT R%d R%d L%d\n", LUAU_INSN_A(insn), self.insns:get(code), targetLabel))
 		code += 1
 	elseif op == LuauOpcode.LOP_JUMPIFNOTEQ then
-		formatAppend(result, "JUMPIFNOTEQ R%d R%d L%d\n", LUAU_INSN_A(insn), self.insns:get(code), targetLabel)
+		append(result, string.format("JUMPIFNOTEQ R%d R%d L%d\n", LUAU_INSN_A(insn), self.insns:get(code), targetLabel))
 		code += 1
 	elseif op == LuauOpcode.LOP_JUMPIFNOTLE then
-		formatAppend(result, "JUMPIFNOTLE R%d R%d L%d\n", LUAU_INSN_A(insn), self.insns:get(code), targetLabel)
+		append(result, string.format("JUMPIFNOTLE R%d R%d L%d\n", LUAU_INSN_A(insn), self.insns:get(code), targetLabel))
 		code += 1
 	elseif op == LuauOpcode.LOP_JUMPIFNOTLT then
-		formatAppend(result, "JUMPIFNOTLT R%d R%d L%d\n", LUAU_INSN_A(insn), self.insns:get(code), targetLabel)
+		append(result, string.format("JUMPIFNOTLT R%d R%d L%d\n", LUAU_INSN_A(insn), self.insns:get(code), targetLabel))
 		code += 1
 	elseif op == LuauOpcode.LOP_ADD then
-		formatAppend(result, "ADD R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("ADD R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_SUB then
-		formatAppend(result, "SUB R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("SUB R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_MUL then
-		formatAppend(result, "MUL R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("MUL R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_DIV then
-		formatAppend(result, "DIV R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("DIV R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_IDIV then
-		formatAppend(result, "IDIV R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("IDIV R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_MOD then
-		formatAppend(result, "MOD R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("MOD R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_POW then
-		formatAppend(result, "POW R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("POW R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_ADDK then
-		formatAppend(result, "ADDK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("ADDK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 		self:dumpConstant(result, LUAU_INSN_C(insn))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_SUBK then
-		formatAppend(result, "SUBK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("SUBK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 		self:dumpConstant(result, LUAU_INSN_C(insn))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_MULK then
-		formatAppend(result, "MULK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("MULK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 		self:dumpConstant(result, LUAU_INSN_C(insn))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_DIVK then
-		formatAppend(result, "DIVK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("DIVK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 		self:dumpConstant(result, LUAU_INSN_C(insn))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_IDIVK then
-		formatAppend(result, "IDIVK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("IDIVK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 		self:dumpConstant(result, LUAU_INSN_C(insn))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_MODK then
-		formatAppend(result, "MODK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("MODK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 		self:dumpConstant(result, LUAU_INSN_C(insn))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_POWK then
-		formatAppend(result, "POWK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("POWK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 		self:dumpConstant(result, LUAU_INSN_C(insn))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_SUBRK then
-		formatAppend(result, "SUBRK R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn))
+		append(result, string.format("SUBRK R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn)))
 		self:dumpConstant(result, LUAU_INSN_B(insn))
-		formatAppend(result, "] R%d\n", LUAU_INSN_C(insn))
+		append(result, string.format("] R%d\n", LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_DIVRK then
-		formatAppend(result, "DIVRK R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn))
+		append(result, string.format("DIVRK R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn)))
 		self:dumpConstant(result, LUAU_INSN_B(insn))
-		formatAppend(result, "] R%d\n", LUAU_INSN_C(insn))
+		append(result, string.format("] R%d\n", LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_AND then
-		formatAppend(result, "AND R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("AND R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_OR then
-		formatAppend(result, "OR R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("OR R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_ANDK then
-		formatAppend(result, "ANDK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("ANDK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 		self:dumpConstant(result, LUAU_INSN_C(insn))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_ORK then
-		formatAppend(result, "ORK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("ORK R%d R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 		self:dumpConstant(result, LUAU_INSN_C(insn))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_CONCAT then
-		formatAppend(result, "CONCAT R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn))
+		append(result, string.format("CONCAT R%d R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn)))
 	elseif op == LuauOpcode.LOP_NOT then
-		formatAppend(result, "NOT R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn))
+		append(result, string.format("NOT R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn)))
 	elseif op == LuauOpcode.LOP_MINUS then
-		formatAppend(result, "MINUS R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn))
+		append(result, string.format("MINUS R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn)))
 	elseif op == LuauOpcode.LOP_LENGTH then
-		formatAppend(result, "LENGTH R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn))
+		append(result, string.format("LENGTH R%d R%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn)))
 	elseif op == LuauOpcode.LOP_NEWTABLE then
-		formatAppend(result,
-			"NEWTABLE R%d %d %d\n",
-			LUAU_INSN_A(insn),
-			if LUAU_INSN_B(insn) == 0 then 0 else bit32.lshift(1, LUAU_INSN_B(insn) - 1),
-			self.insns:get(code)
+		append(
+			result,
+			string.format(
+				"NEWTABLE R%d %d %d\n",
+				LUAU_INSN_A(insn),
+				if LUAU_INSN_B(insn) == 0 then 0 else bit32.lshift(1, LUAU_INSN_B(insn) - 1),
+				self.insns:get(code)
+			)
 		)
 		code += 1
 	elseif op == LuauOpcode.LOP_DUPTABLE then
-		formatAppend(result, "DUPTABLE R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_D(insn))
+		append(result, string.format("DUPTABLE R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_D(insn)))
 	elseif op == LuauOpcode.LOP_SETLIST then
-		formatAppend(result, "SETLIST R%d R%d %d [%d]\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn) - 1, self.insns:get(code))
+		append(result, string.format("SETLIST R%d R%d %d [%d]\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), LUAU_INSN_C(insn) - 1, self.insns:get(code)))
 		code += 1
 	elseif op == LuauOpcode.LOP_FORNPREP then
-		formatAppend(result, "FORNPREP R%d L%d\n", LUAU_INSN_A(insn), targetLabel)
+		append(result, string.format("FORNPREP R%d L%d\n", LUAU_INSN_A(insn), targetLabel))
 	elseif op == LuauOpcode.LOP_FORNLOOP then
-		formatAppend(result, "FORNLOOP R%d L%d\n", LUAU_INSN_A(insn), targetLabel)
+		append(result, string.format("FORNLOOP R%d L%d\n", LUAU_INSN_A(insn), targetLabel))
 	elseif op == LuauOpcode.LOP_FORGPREP then
-		formatAppend(result, "FORGPREP R%d L%d\n", LUAU_INSN_A(insn), targetLabel)
+		append(result, string.format("FORGPREP R%d L%d\n", LUAU_INSN_A(insn), targetLabel))
 	elseif op == LuauOpcode.LOP_FORGLOOP then
-		formatAppend(
+		append(
 			result,
-			"FORGLOOP R%d L%d %d%s\n",
-			LUAU_INSN_A(insn),
-			targetLabel,
-			uint8_t(self.insns:get(code)),
-			if int(self.insns:get(code)) < 0 then " [inext]" else ""
+			string.format(
+				"FORGLOOP R%d L%d %d%s\n",
+				LUAU_INSN_A(insn),
+				targetLabel,
+				uint8_t(self.insns:get(code)),
+				if int(self.insns:get(code)) < 0 then " [inext]" else ""
+			)
 		)
 		code += 1
 	elseif op == LuauOpcode.LOP_FORGPREP_INEXT then
-		formatAppend(result, "FORGPREP_INEXT R%d L%d\n", LUAU_INSN_A(insn), targetLabel)
+		append(result, string.format("FORGPREP_INEXT R%d L%d\n", LUAU_INSN_A(insn), targetLabel))
 	elseif op == LuauOpcode.LOP_FORGPREP_NEXT then
-		formatAppend(result, "FORGPREP_NEXT R%d L%d\n", LUAU_INSN_A(insn), targetLabel)
+		append(result, string.format("FORGPREP_NEXT R%d L%d\n", LUAU_INSN_A(insn), targetLabel))
 	elseif op == LuauOpcode.LOP_GETVARARGS then
-		formatAppend(result, "GETVARARGS R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn) - 1)
+		append(result, string.format("GETVARARGS R%d %d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn) - 1))
 	elseif op == LuauOpcode.LOP_DUPCLOSURE then
-		formatAppend(result, "DUPCLOSURE R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_D(insn))
+		append(result, string.format("DUPCLOSURE R%d K%d [", LUAU_INSN_A(insn), LUAU_INSN_D(insn)))
 		self:dumpConstant(result, LUAU_INSN_D(insn))
-		result.s ..= "]\n"
+		append(result, "]\n")
 	elseif op == LuauOpcode.LOP_BREAK then
-		formatAppend(result, "BREAK\n")
+		append(result, string.format("BREAK\n"))
 	elseif op == LuauOpcode.LOP_JUMPBACK then
-		formatAppend(result, "JUMPBACK L%d\n", targetLabel)
+		append(result, string.format("JUMPBACK L%d\n", targetLabel))
 	elseif op == LuauOpcode.LOP_LOADKX then
-		formatAppend(result, "LOADKX R%d K%d [", LUAU_INSN_A(insn), self.insns:get(code))
+		append(result, string.format("LOADKX R%d K%d [", LUAU_INSN_A(insn), self.insns:get(code)))
 		self:dumpConstant(result, self.insns:get(code))
-		result.s ..= "]\n"
+		append(result, "]\n")
 		code += 1
 	elseif op == LuauOpcode.LOP_JUMPX then
-		formatAppend(result, "JUMPX L%d\n", targetLabel)
+		append(result, string.format("JUMPX L%d\n", targetLabel))
 	elseif op == LuauOpcode.LOP_FASTCALL then
-		formatAppend(result, "FASTCALL %d L%d\n", LUAU_INSN_A(insn), targetLabel)
+		append(result, string.format("FASTCALL %d L%d\n", LUAU_INSN_A(insn), targetLabel))
 	elseif op == LuauOpcode.LOP_FASTCALL1 then
-		formatAppend(result, "FASTCALL1 %d R%d L%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), targetLabel)
+		append(result, string.format("FASTCALL1 %d R%d L%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), targetLabel))
 	elseif op == LuauOpcode.LOP_FASTCALL2 then
-		formatAppend(result, "FASTCALL2 %d R%d R%d L%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), code, targetLabel)
+		append(result, string.format("FASTCALL2 %d R%d R%d L%d\n", LUAU_INSN_A(insn), LUAU_INSN_B(insn), self.insns:get(code), targetLabel))
 		code += 1
 	elseif op == LuauOpcode.LOP_FASTCALL2K then
-		formatAppend(result, "FASTCALL2K %d R%d K%d L%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), self.insns:get(code), targetLabel)
+		append(result, string.format("FASTCALL2K %d R%d K%d L%d [", LUAU_INSN_A(insn), LUAU_INSN_B(insn), self.insns:get(code), targetLabel))
 		self:dumpConstant(result, self.insns:get(code))
-		result.s ..= "]\n"
+		append(result, "]\n")
 		code += 1
 	elseif op == LuauOpcode.LOP_COVERAGE then
-		formatAppend(result, "COVERAGE\n")
+		append(result, string.format("COVERAGE\n"))
 	elseif op == LuauOpcode.LOP_CAPTURE then
-		formatAppend(
+		append(
 			result,
-			"CAPTURE %s %c%d\n",
-			if LUAU_INSN_A(insn) == LuauCaptureType.LCT_UPVAL then "UPVAL"
-			elseif LUAU_INSN_A(insn) == LuauCaptureType.LCT_REF then "REF"
-			elseif LUAU_INSN_A(insn) == LuauCaptureType.LCT_VAL then "VAL"
-			else "",
-			string.byte(if LUAU_INSN_A(insn) == LuauCaptureType.LCT_UPVAL then "U" else "R"),
-			LUAU_INSN_B(insn)
+			string.format(
+				"CAPTURE %s %c%d\n",
+				if LUAU_INSN_A(insn) == LuauCaptureType.LCT_UPVAL then "UPVAL"
+				elseif LUAU_INSN_A(insn) == LuauCaptureType.LCT_REF then "REF"
+				elseif LUAU_INSN_A(insn) == LuauCaptureType.LCT_VAL then "VAL"
+				else "",
+				string.byte(if LUAU_INSN_A(insn) == LuauCaptureType.LCT_UPVAL then "U" else "R"),
+				LUAU_INSN_B(insn)
+			)
 		)
 	elseif op == LuauOpcode.LOP_JUMPXEQKNIL then
-		formatAppend(result, "JUMPXEQKNIL R%d L%d%s\n", LUAU_INSN_A(insn), targetLabel, if bit32.rshift(self.insns:get(code), 31) ~= 0 then " NOT" else "")
+		append(result, string.format("JUMPXEQKNIL R%d L%d%s\n", LUAU_INSN_A(insn), targetLabel, if bit32.rshift(self.insns:get(code), 31) ~= 0 then " NOT" else ""))
 		code += 1
 	elseif op == LuauOpcode.LOP_JUMPXEQKB then
-		formatAppend(
+		append(
 			result,
-			"JUMPXEQKB R%d %d L%d%s\n",
-			LUAU_INSN_A(insn),
-			bit32.band(self.insns:get(code), 1),
-			targetLabel,
-			if bit32.rshift(self.insns:get(code), 31) ~= 0 then " NOT" else ""
+			string.format(
+				"JUMPXEQKB R%d %d L%d%s\n",
+				LUAU_INSN_A(insn),
+				bit32.band(self.insns:get(code), 1),
+				targetLabel,
+				if bit32.rshift(self.insns:get(code), 31) ~= 0 then " NOT" else ""
+			)
 		)
 	elseif op == LuauOpcode.LOP_JUMPXEQKN then
-		formatAppend(
+		append(
 			result,
-			"JUMPXEQKN R%d K%d L%d%s [",
-			LUAU_INSN_A(insn),
-			bit32.band(self.insns:get(code), 0xffffff),
-			targetLabel,
-			if bit32.rshift(self.insns:get(code), 31) ~= 0 then " NOT" else ""
+			string.format(
+				"JUMPXEQKN R%d K%d L%d%s [",
+				LUAU_INSN_A(insn),
+				bit32.band(self.insns:get(code), 0xffffff),
+				targetLabel,
+				if bit32.rshift(self.insns:get(code), 31) ~= 0 then " NOT" else ""
+			)
 		)
 		self:dumpConstant(result, bit32.band(self.insns:get(code), 0xffffff))
-		result.s ..= "]\n"
+		append(result, "]\n")
 		code += 1
 	elseif op == LuauOpcode.LOP_JUMPXEQKS then
-		formatAppend(
+		append(
 			result,
-			"JUMPXEQKS R%d K%d L%d%s [",
-			LUAU_INSN_A(insn),
-			bit32.band(self.insns:get(code), 0xffffff),
-			targetLabel,
-			if bit32.rshift(self.insns:get(code), 31) ~= 0 then " NOT" else ""
+			string.format(
+				"JUMPXEQKS R%d K%d L%d%s [",
+				LUAU_INSN_A(insn),
+				bit32.band(self.insns:get(code), 0xffffff),
+				targetLabel,
+				if bit32.rshift(self.insns:get(code), 31) ~= 0 then " NOT" else ""
+			)
 		)
 		self:dumpConstant(result, bit32.band(self.insns:get(code), 0xffffff))
-		result.s ..= "]\n"
+		append(result, "]\n")
 		code += 1
 	else
 		error("Unsupported opcode")
@@ -2684,7 +2719,7 @@ function prototype.dumpCurrentFunction(self: BytecodeBuilder, dumpinstoffs: Vect
 	local lastLine = -1
 	local nextRemark = 0
 
-	local result = {s = ""}
+	local result = {len = 0, contents = {}}
 
 	if bit32.band(self.dumpFlags, DumpFlags.Dump_Locals) ~= 0 then
 		for i = 1, self.debugLocals:size() do
@@ -2694,22 +2729,24 @@ function prototype.dumpCurrentFunction(self: BytecodeBuilder, dumpinstoffs: Vect
 				LUAU_ASSERT(l.startpc < self.lines:size())
 
 				-- it would be nice to emit name as well but it requires reverse lookup through stringtable
-				formatAppend(result, "local %d: reg %d, start pc %d line %d, no live range\n", i - 1, l.reg, l.startpc, self.lines:get(l.startpc))
+				append(result, string.format("local %d: reg %d, start pc %d line %d, no live range\n", i - 1, l.reg, l.startpc, self.lines:get(l.startpc + 1)))
 			else
 				LUAU_ASSERT(l.startpc < l.endpc)
 				LUAU_ASSERT(l.startpc < self.lines:size())
 				LUAU_ASSERT(l.endpc <= self.lines:size()) -- endpc is exclusive in the debug info, but it's more intuitive to print inclusive data
 
 				-- it would be nice to emit name as well but it requires reverse lookup through stringtable
-				formatAppend(
+				append(
 					result,
-					"local %d: reg %d, start pc %d line %d, end pc %d line %d\n",
-					i,
-					l.reg,
-					l.startpc,
-					self.lines:get(l.startpc + 1),
-					l.endpc - 1,
-					self.lines:get(l.endpc - 1 + 1)
+					string.format(
+						"local %d: reg %d, start pc %d line %d, end pc %d line %d\n",
+						i - 1,
+						l.reg,
+						l.startpc,
+						self.lines:get(l.startpc + 1),
+						l.endpc - 1,
+						self.lines:get(l.endpc - 1 + 1)
+					)
 				)
 			end
 		end
@@ -2728,7 +2765,7 @@ function prototype.dumpCurrentFunction(self: BytecodeBuilder, dumpinstoffs: Vect
 					local name = if userdata then userdata else BytecodeBuilder.getBaseTypeString(et)
 					local optional = if bit32.band(et, LuauBytecodeType.LBC_TYPE_OPTIONAL_BIT) ~= 0 then "?" else ""
 
-					formatAppend(result, "R%d: %s%s [argument]\n", i - 2, name, optional)
+					append(result, string.format("R%d: %s%s [argument]\n", i - 2, name, optional))
 				end
 
 				for i = 0, self.typedUpvals:size() - 1 do
@@ -2738,7 +2775,7 @@ function prototype.dumpCurrentFunction(self: BytecodeBuilder, dumpinstoffs: Vect
 					local name = if userdata then userdata else BytecodeBuilder.getBaseTypeString(l.type)
 					local optional = if bit32.band(l.type, LuauBytecodeType.LBC_TYPE_OPTIONAL_BIT) ~= 0 then "?" else ""
 
-					formatAppend(result, "U%d: %s%s\n", i, name, optional)
+					append(result, string.format("U%d: %s%s\n", i, name, optional))
 				end
 				
 				for i = 0, self.typedLocals:size() - 1 do
@@ -2748,7 +2785,7 @@ function prototype.dumpCurrentFunction(self: BytecodeBuilder, dumpinstoffs: Vect
 					local name = if userdata then userdata else BytecodeBuilder.getBaseTypeString(l.type)
 					local optional = if bit32.band(l.type, LuauBytecodeType.LBC_TYPE_OPTIONAL_BIT) ~= 0 then "?" else ""
 
-					formatAppend(result, "R%d: %s%s from %d to %d\n", l.reg, name, optional, l.startpc, l.endpc)
+					append(result, string.format("R%d: %s%s from %d to %d\n", l.reg, name, optional, l.startpc, l.endpc))
 				end
 			else
 				-- Arguments start from third byte in function typeinfo string
@@ -2758,7 +2795,7 @@ function prototype.dumpCurrentFunction(self: BytecodeBuilder, dumpinstoffs: Vect
 					local base = BytecodeBuilder.getBaseTypeString(et)
 					local optional = if bit32.band(et, LuauBytecodeType.LBC_TYPE_OPTIONAL_BIT) ~= 0 then "?" else ""
 
-					formatAppend(result, "R%d: %s%s [argument]\n", i - 2, base, optional)
+					append(result, string.format("R%d: %s%s [argument]\n", i - 2, base, optional))
 				end
 
 				for i = 0, self.typedUpvals:size() - 1 do
@@ -2767,7 +2804,7 @@ function prototype.dumpCurrentFunction(self: BytecodeBuilder, dumpinstoffs: Vect
 					local base = BytecodeBuilder.getBaseTypeString(l.type)
 					local optional = if bit32.band(l.type, LuauBytecodeType.LBC_TYPE_OPTIONAL_BIT) ~= 0 then "?" else ""
 
-					formatAppend(result, "U%d: %s%s\n", i, base, optional)
+					append(result, string.format("U%d: %s%s\n", i, base, optional))
 				end
 				
 				for i = 0, self.typedLocals:size() - 1 do
@@ -2776,7 +2813,7 @@ function prototype.dumpCurrentFunction(self: BytecodeBuilder, dumpinstoffs: Vect
 					local base = BytecodeBuilder.getBaseTypeString(l.type)
 					local optional = if bit32.band(l.type, LuauBytecodeType.LBC_TYPE_OPTIONAL_BIT) ~= 0 then "?" else ""
 
-					formatAppend(result, "R%d: %s%s from %d to %d\n", l.reg, base, optional, l.startpc, l.endpc)
+					append(result, string.format("R%d: %s%s from %d to %d\n", l.reg, base, optional, l.startpc, l.endpc))
 				end
 			end
 		end
@@ -2815,7 +2852,7 @@ function prototype.dumpCurrentFunction(self: BytecodeBuilder, dumpinstoffs: Vect
 		local code = self.insns:get(i)
 		local op = LUAU_INSN_OP(code)
 
-		dumpinstoffs:set(i, int(#result.s))
+		dumpinstoffs:set(i, int(result.len))
 
 		if op == LuauOpcode.LOP_PREPVARARGS then
 			-- Don't emit function header in bytecode - it's used for call dispatching and doesn't contain "interesting" information
@@ -2825,8 +2862,13 @@ function prototype.dumpCurrentFunction(self: BytecodeBuilder, dumpinstoffs: Vect
 
 		if bit32.band(self.dumpFlags, DumpFlags.Dump_Remarks) ~= 0 then
 			while nextRemark < self.debugRemarks:size() and self.debugRemarks:get(nextRemark + 1).first == i - 1 do
-				-- string.sub(self.debugRemarkBuffer, self.debugRemarks:get(nextRemark + 1).second))
-				formatAppend(result, "REMARK %s\n", self.dumpRemarks:get(nextRemark + 1).second)
+				append(
+					result,
+					string.format(
+						"REMARK %s\n",
+						assert(string.sub(self.debugRemarkBuffer, self.debugRemarks:get(nextRemark + 1).second):match("^[^%z]*"))
+					)
+				)
 				nextRemark += 1
 			end
 		end
@@ -2836,17 +2878,17 @@ function prototype.dumpCurrentFunction(self: BytecodeBuilder, dumpinstoffs: Vect
 
 			if line > 0 and line ~= lastLine then
 				LUAU_ASSERT((line - 1) < self.dumpSource:size())
-				formatAppend(result, "%5d:  %s\n", line, self.dumpSource:get(line - 1 + 1))
+				append(result, string.format("%5d: %s\n", line, self.dumpSource:get(line - 1 + 1)))
 				lastLine = line
 			end
 		end
 
 		if bit32.band(self.dumpFlags, DumpFlags.Dump_Lines) ~= 0 then
-			formatAppend(result, "%d: ", self.lines:get(i))
+			append(result, string.format("%d: ", self.lines:get(i)))
 		end
 
 		if labels:get(i) ~= -1 then
-			formatAppend(result, "L%d: ", labels:get(i))
+			append(result, string.format("L%d: ", labels:get(i)))
 		end
 
 		local target = getJumpTarget(code, uint32_t(i - 1))
@@ -2857,9 +2899,9 @@ function prototype.dumpCurrentFunction(self: BytecodeBuilder, dumpinstoffs: Vect
 		LUAU_ASSERT(i <= self.insns:size() + 1)
 	end
 
-	dumpinstoffs:set(self.insns:size() + 1, int(#result.s))
+	dumpinstoffs:set(self.insns:size() + 1, int(result.len))
 
-	return result.s
+	return table.concat(result.contents)
 end
 
 --[=[
@@ -2869,7 +2911,7 @@ end
 function prototype.setDumpSource(self: BytecodeBuilder, source: string): ()
 	self.dumpSource:clear()
 
-	local pos: number? = 0
+	local pos: number? = 1
 
 	while pos ~= nil do
 		local next = source:find("\n", pos)
@@ -2878,7 +2920,7 @@ function prototype.setDumpSource(self: BytecodeBuilder, source: string): ()
 			self.dumpSource:push_back(source:sub(pos))
 			pos = next
 		else
-			self.dumpSource:push_back(source:sub(pos, pos + (next - pos)))
+			self.dumpSource:push_back(source:sub(pos, pos + (next - pos - 1)))
 			pos = next + 1
 		end
 
@@ -2903,18 +2945,18 @@ end
 	@since v0.1.0
 ]=]
 function prototype.dumpEverything(self: BytecodeBuilder): string
-	local result = {s = ""}
+	local result: {string} = {}
 
 	for i = 0, self.functions:size() - 1 do
 		local debugname = if self.functions:get(i + 1).dumpname == "" then "??" else self.functions:get(i + 1).dumpname
 		
-		formatAppend(result, "Function %d (%s):\n", i, debugname)
+		table.insert(result, string.format("Function %d (%s):\n", i, debugname))
 
-		result.s ..= self.functions:get(i + 1).dump
-		result.s ..= "\n"
+		table.insert(result, self.functions:get(i + 1).dump)
+		table.insert(result, "\n")
 	end
 
-	return result.s
+	return table.concat(result)
 end
 
 --[=[
@@ -2922,7 +2964,7 @@ end
 	@since v0.1.0
 ]=]
 function prototype.dumpSourceRemarks(self: BytecodeBuilder): string
-	local result = {s = ""}
+	local result: {string} = {}
 
 	local nextRemark = 0
 
@@ -2944,23 +2986,27 @@ function prototype.dumpSourceRemarks(self: BytecodeBuilder): string
 		end
 
 		while nextRemark < #remarks and remarks[nextRemark + 1].first == int(i + 1) do
-			formatAppend(result, "%s-- remark: %s\n", string.sub(line, indent), remarks[nextRemark + 1].second)
+			table.insert(result, string.format("%s-- remark: %s\n", string.sub(line, 1, indent), remarks[nextRemark + 1].second))
 			nextRemark += 1
 
 			-- skip duplicate remarks (due to inlining/unrolling)
-			while nextRemark < #remarks and remarks[nextRemark + 1] == remarks[nextRemark - 1 + 1] do
+			while
+				nextRemark < #remarks
+				and remarks[nextRemark + 1].first == remarks[nextRemark - 1 + 1].first
+				and remarks[nextRemark + 1].second == remarks[nextRemark - 1 + 1].second
+			do
 				nextRemark += 1
 			end
 		end
 
-		result.s ..= line
+		table.insert(result, line)
 
 		if i + 1 < self.dumpSource:size() then
-			result.s ..= "\n"
+			table.insert(result, "\n")
 		end
 	end
 
-	return result.s
+	return table.concat(result)
 end
 
 --[=[
@@ -2968,7 +3014,7 @@ end
 	@since v0.1.0
 ]=]
 function prototype.dumpTypeInfo(self: BytecodeBuilder): string
-	local result = {s = ""}
+	local result: {string} = {}
 
 	for i = 0, self.functions:size() - 1 do
 		local typeinfo = self.functions:get(i + 1).typeinfo
@@ -2980,7 +3026,7 @@ function prototype.dumpTypeInfo(self: BytecodeBuilder): string
 
 		LUAU_ASSERT(encodedType == LuauBytecodeType.LBC_TYPE_FUNCTION)
 		
-		formatAppend(result, "%d: function(", i)
+		table.insert(result, string.format("%d: function(", i))
 		
 		LUAU_ASSERT(#typeinfo >= 2)
 
@@ -2991,24 +3037,24 @@ function prototype.dumpTypeInfo(self: BytecodeBuilder): string
 		for i = 0, numparams - 1 do
 			local et = string.byte(typeinfo, 2 + i + 1, 2 + i + 1)
 			local optional = if bit32.band(et, LuauBytecodeType.LBC_TYPE_OPTIONAL_BIT) ~= 0 then "?" else ""
-			formatAppend(result, "%s%s", BytecodeBuilder.getBaseTypeString(et), optional)
+			table.insert(result, string.format("%s%s", BytecodeBuilder.getBaseTypeString(et), optional))
 
 			if i + 1 ~= numparams then
-				formatAppend(result, ", ")
+				table.insert(result, string.format(", "))
 			end
 		end
 
-		formatAppend(result, ")\n")
+		table.insert(result, string.format(")\n"))
 	end
 
-	return result.s
+	return table.concat(result)
 end
 
 --[=[
 	@within BytecodeBuilder
 	@since v0.1.0
 ]=]
-function prototype.annotateInstruction(self: BytecodeBuilder, result: stringWrap, fid: number, instpos: number): ()
+function prototype.annotateInstruction(self: BytecodeBuilder, result: {string}, fid: number, instpos: number): ()
 	if bit32.band(self.dumpFlags, DumpFlags.Dump_Code) == 0 then
 		return
 	end
@@ -3028,7 +3074,7 @@ function prototype.annotateInstruction(self: BytecodeBuilder, result: stringWrap
 		next += 1
 	end
 
-	formatAppend(result, "%s", string.sub(
+	table.insert(result, string.sub(
 		string.sub(dump, 1, dumpinstoffs:get(instpos + 1)),
 		1,
 		dumpinstoffs:get(next + 1) - dumpinstoffs:get(instpos + 1)

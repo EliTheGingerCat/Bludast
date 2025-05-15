@@ -69,7 +69,7 @@ local function parallelAddSat(x: u64, y: u64): u64
 		10000000 00000000 00000000 10000000 10000000 00000000 10000000 00000000
 	]]
 	-- Eli: s1 = saturation 1
-	local s1 = bit32.band(r1, 0x08080808) -- saturation mask
+	local s1 = bit32.band(r1, 0x80808080) -- saturation mask
 
 	--[[
 		Eli:
@@ -92,7 +92,7 @@ local function parallelAddSat(x: u64, y: u64): u64
 
 	-- Eli: Repeat for the second u32.
 	local r2 = x.second + y.second
-	local s2 = bit32.band(r2, 0x08080808) -- saturation mask
+	local s2 = bit32.band(r2, 0x80808080) -- saturation mask
 
 	local t2 = bit32.bor(
 		bit32.bxor(r2, s2),
@@ -181,9 +181,9 @@ function Cost.new(cost: number?, constant: u64?): Cost
 	if cost == nil then
 		model = Pair.new(0, 0)
 	elseif cost < 0x7f then
-		model = Pair.new(0, cost)
+		model = Pair.new(cost, 0)
 	else
-		model = Pair.new(0, 0x7f)
+		model = Pair.new(0x7f, 0)
 	end
 
 	return setmetatable({

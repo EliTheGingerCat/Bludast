@@ -138,10 +138,10 @@ end
 local function getType(
 	ty: AstType,
 	generics: {AstGenericType},
-	typeAliases: {[AstName]: AstStatTypeAlias},
+	typeAliases: {[string]: AstStatTypeAlias},
 	resolveAliases: boolean,
 	vectorType: string?,
-	userdataTypes: {[AstName]: number},
+	userdataTypes: {[string]: number},
 	bytecode: BytecodeBuilder
 ): number
 	local ref = ty:as(AstTypeReference)
@@ -155,7 +155,7 @@ local function getType(
 			return LuauBytecodeType.LBC_TYPE_ANY
 		end
 
-		local alias = typeAliases[ref.name]
+		local alias = typeAliases[assert(ref.name.value)]
 		if alias then
 			-- note: we only resolve aliases to the depth of 1 to avoid dealing with recursive aliases
 			if resolveAliases then
@@ -179,7 +179,7 @@ local function getType(
 		end
 
 		if FastVariables.LuauCompileUserdataInfo then
-			local userdataIndex = userdataTypes[ref.name]
+			local userdataIndex = userdataTypes[assert(ref.name.value)]
 			if userdataIndex then
 				bytecode:useUserdataType(userdataIndex)
 				return LuauBytecodeType.LBC_TYPE_TAGGED_USERDATA_BASE + userdataIndex
@@ -231,9 +231,9 @@ end
 
 local function getFunctionType(
 	func: AstExprFunction,
-	typeAliases: {[AstName]: AstStatTypeAlias},
+	typeAliases: {[string]: AstStatTypeAlias},
 	vectorType: string?,
-	userdataTypes: {[AstName]: number},
+	userdataTypes: {[string]: number},
 	bytecode: BytecodeBuilder
 ): string
 	local self = func.self ~= nil
@@ -287,13 +287,13 @@ type TypeMapVisitor = AstVisitor & {
 	localTypes: {[AstLocal]: number},
 	exprTypes: {[AstExpr]: number},
 	vectorType: string?,
-	userdataTypes: {[AstName]: number},
+	userdataTypes: {[string]: number},
 	builtinTypes: BuiltinTypes,
 	builtinCalls: {[AstExprCall]: number},
 	globals: {[string]: number},
 	bytecode: BytecodeBuilder,
 
-	typeAliases: {[AstName]: AstStatTypeAlias},
+	typeAliases: {[string]: AstStatTypeAlias},
 	typeAliasStack: Vector<Pair<AstName, AstStatTypeAlias>>,
 	resolvedLocals: {[AstLocal]: AstType},
 	resolvedExprs: {[AstExpr]: AstType},
@@ -312,7 +312,7 @@ function TypeMapVisitor.new(
 	localTypes: {[AstLocal]: number},
 	exprTypes: {[AstExpr]: number},
 	vectorType: string?,
-	userdataTypes: {[AstName]: number},
+	userdataTypes: {[string]: number},
 	builtinTypes: BuiltinTypes,
 	builtinCalls: {[AstExprCall]: number},
 	globals: {[string]: number},
@@ -342,10 +342,10 @@ function prototype.pushTypeAliases(self: TypeMapVisitor, block: AstStatBlock): n
 	for _, stat in block.body do
 		local alias = (stat :: AstStat):as(AstStatTypeAlias)
 		if alias then
-			local prevAlias = self.typeAliases[alias.name]
+			local prevAlias = self.typeAliases[assert(alias.name.value)]
 
 			self.typeAliasStack:push_back(Pair.new(alias.name, prevAlias))
-			self.typeAliases[alias.name] = alias
+			self.typeAliases[assert(alias.name.value)] = alias
 		end
 	end
 
@@ -356,7 +356,7 @@ function prototype.popTypeAliases(self: TypeMapVisitor, aliasStackTop: number): 
 	while self.typeAliasStack:size() > aliasStackTop do
 		local top = self.typeAliasStack:back()
 
-		self.typeAliases[top.first] = top.second
+		self.typeAliases[assert(top.first.value)] = top.second
 		self.typeAliasStack:pop_back()
 	end
 end
@@ -370,7 +370,7 @@ function prototype.resolveAliases(self: TypeMapVisitor, ty: AstType): AstType
 			return ty
 		end
 
-		local alias = self.typeAliases[ref.name]
+		local alias = self.typeAliases[assert(ref.name.value)]
 		if alias then
 			return alias.type
 		end
@@ -891,7 +891,7 @@ function Types.buildTypeMap(
 	exprTypes: {[AstExpr]: number},
 	root: AstNode,
 	vectorType: string?,
-	userdataTypes: {[AstName]: number},
+	userdataTypes: {[string]: number},
 	builtinTypes: BuiltinTypes,
 	builtinCalls: {[AstExprCall]: number},
 	globals: {[string]: number},

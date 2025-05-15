@@ -289,7 +289,8 @@ function ConstantVisitor.new(
 	self.locals = locals
 	self.builtins = builtins
 	self.foldMathK = foldMathK
-	self.wasEmpty = false
+	-- since we do a single pass over the tree, if the initial state was empty we don't need to clear out old entries
+	self.wasEmpty = next(constants) == nil and next(locals) == nil
 	self.builtinArgs = Vector.new()
 	setmetatable(self, metatableVisitor)
 	return self
@@ -370,6 +371,8 @@ function prototypeVisitor.analyze(self: ConstantVisitor, node: AstExpr): Constan
 				end
 				result = foldBuiltin(bfid, args, #exprCall.args)
 			end
+
+			self.builtinArgs:resize(offset)
 		else
 			for _, arg in exprCall.args do
 				self:analyze(arg :: AstExpr)
@@ -496,7 +499,7 @@ function prototypeVisitor.visitAstStatLocal(self: ConstantVisitor, node: AstStat
         -- them
 
 		for i = #node.vars + 1, #node.values do
-			self:analyze(node.values[1])
+			self:analyze(node.values[i])
 		end
 	end
 

@@ -204,6 +204,9 @@ function Builtins.getBuiltinFunctionId(builtin: Builtin, options: CompileOptions
 		if builtin.method.value == "sinh" then
 			return LuauBuiltinFunction.LBF_MATH_SINH
 		end
+		if builtin.method.value == "sin" then
+			return LuauBuiltinFunction.LBF_MATH_SIN
+		end
 		if builtin.method.value == "sqrt" then
 			return LuauBuiltinFunction.LBF_MATH_SQRT
 		end
@@ -247,7 +250,7 @@ function Builtins.getBuiltinFunctionId(builtin: Builtin, options: CompileOptions
 			return LuauBuiltinFunction.LBF_BIT32_EXTRACT
 		end
 		if builtin.method.value == "lrotate" then
-			return LuauBuiltinFunction.LBF_BIT32_RROTATE
+			return LuauBuiltinFunction.LBF_BIT32_LROTATE
 		end
 		if builtin.method.value == "lshift" then
 			return LuauBuiltinFunction.LBF_BIT32_LSHIFT

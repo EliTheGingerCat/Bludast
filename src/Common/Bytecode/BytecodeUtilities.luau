@@ -1,4 +1,8 @@
 local LuauOpcode = require("./LuauOpcode")
+local NumberConversions = require("@Polyfill/NumberConversions")
+
+local int16_t = NumberConversions.int16_t
+local int32_t = NumberConversions.int32_t
 
 --[=[
 	@class BytecodeUtilities
@@ -62,9 +66,9 @@ function BytecodeUtilities.LUAU_INSN_C(insn: number): number
 	return bit32.band(bit32.rshift(insn, 24), 0xff)
 end
 
-local function int16(n: number): number
-    if n > 2^15 - 1 then
-        return n - 2^16
+local function int24(n: number): number
+    if n > 2^23 - 1 then
+        return n - 2^24
     else
         return n
     end
@@ -72,12 +76,12 @@ end
 
 -- AD encoding: one 8-bit value, one signed 16-bit value
 function BytecodeUtilities.LUAU_INSN_D(insn: number): number
-	return int16(bit32.rshift(insn, 16))
+	return int16_t(bit32.rshift(insn, 16))
 end
 
 -- E encoding: one signed 24-bit value
 function BytecodeUtilities.LUAU_INSN_E(insn: number): number
-	return int16(bit32.rshift(insn, 8))
+	return int24(bit32.rshift(int32_t(insn), 8))
 end
 
 return BytecodeUtilities

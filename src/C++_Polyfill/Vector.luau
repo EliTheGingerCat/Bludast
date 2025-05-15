@@ -45,6 +45,15 @@ Vector.prototype = prototype
 	
 	The amount of elements in the table, not including [EMPTY](Vector#EMPTY) values.
 ]=]
+--[=[
+	@within Vector
+	@prop _capacity number
+	@readonly
+	@private
+	@since v0.1.0
+	
+	The number of elements the vector has currently allocated space for.
+]=]
 local _
 
 --[=[
@@ -73,7 +82,8 @@ local EMPTY = setmetatable({}, {
 
 export type Vector<T> = typeof(setmetatable({} :: {
 	_data: {T},
-	_size: number
+	_size: number,
+	_capacity: number
 }, metatable))
 
 --[=[
@@ -83,7 +93,8 @@ export type Vector<T> = typeof(setmetatable({} :: {
 function Vector.new<T>(count: number?, value: T?): Vector<T>
 	local self = setmetatable({
 		_data = table.create(count or 0, value),
-		_size = count or 0
+		_size = count or 0,
+		_capacity = count or 0
 	}, metatable)
 
 	return self
@@ -100,6 +111,7 @@ function prototype.reserve(self: Vector<any>, n: number): ()
 		for i = self._size + 1, n do
 			self._data[i] = EMPTY
 		end
+		self._capacity = n
 	end
 end
 
@@ -125,6 +137,7 @@ function prototype.resize<T>(self: Vector<T>, count: number, value: T?): ()
 		end
 	end
 	self._size = count
+	self._capacity = count
 end
 
 --[=[
@@ -136,6 +149,7 @@ end
 function prototype.assign(self: Vector<any>, n: number, val: any): ()
 	self._data = table.create(n, val)
 	self._size = n
+	self._capacity = n
 end
 
 --[=[
@@ -156,6 +170,7 @@ end
 function prototype.clear(self: Vector<any>): ()
 	table.clear(self._data)
 	self._size = 0
+	self._capacity = 0
 end
 
 --[=[
@@ -272,6 +287,9 @@ end
 ]=]
 function prototype.push_back<T>(self: Vector<T>, val: T): ()
 	self._size += 1
+	if self._capacity < self._size then
+		self._capacity = self._size
+	end
 	self._data[self._size] = val
 end
 
@@ -292,10 +310,10 @@ prototype.emplace_back = prototype.push_back
 	@since v0.1.0
 ]=]
 function prototype.set<T>(self: Vector<T>, index: number, value: T): ()
-	if not (0 < index and index < self._size + 1) then
-		print(debug.traceback())
+	assert(0 < index and index < self._capacity + 1)
+	if self._data[index] == EMPTY :: any then
+		self._size += 1
 	end
-	assert(0 < index and index < self._size + 1)
 	self._data[index] = value
 end
 
@@ -322,6 +340,7 @@ end
 function prototype.swap<T>(self: Vector<T>, other: Vector<T>): ()
 	self._data, other._data = other._data, self._data
 	self._size, other._size = other._size, self._size
+	self._capacity, other._capacity = other._capacity, self._capacity
 end
 
 --[=[
