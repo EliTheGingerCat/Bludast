@@ -1,6 +1,6 @@
 local FastVariables = require("@Shared/FastVariables")
-local Scope = require("./Scope")
-local Utilities = require("./Utilities")
+local Scope = require("@self/Scope")
+local Utilities = require("@self/Utilities")
 
 type Scope = Scope.Scope
 
